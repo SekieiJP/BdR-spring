@@ -115,145 +115,251 @@ export class CardManager {
     }
 
     /**
+     * ステータス名の日本語→英語マッピング
+     */
+    getStatusMap() {
+        return {
+            '体験': 'experience',
+            '入塾': 'enrollment',
+            '満足': 'satisfaction',
+            '経理': 'accounting'
+        };
+    }
+
+    /**
+     * スタッフ名の日本語→英語マッピング
+     */
+    getStaffMap() {
+        return {
+            '室長': 'leader',
+            '講師': 'teacher',
+            '事務': 'staff'
+        };
+    }
+
+    /**
      * カード効果をパース
      * @param {string} effectText - 効果テキスト
-     * @param {string} staff - 実行スタッフ (leader, teacher, staff)
-     * @returns {Object} パース済み効果
+     * @returns {Object} パース済み効果データ
      */
-    parseEffect(effectText, staff) {
+    parseEffect(effectText) {
         const result = {
-            base: [],
-            conditional: [],
-            restrictions: []
+            staffRestrictions: [],   // 【】内のスタッフ制限
+            baseEffects: [],         // 基本効果（無条件）
+            conditionalBlocks: []    // 〈〉条件付きブロック
         };
 
-        // 【】で対象スタッフを抽出
+        const statusMap = this.getStatusMap();
+        const staffMap = this.getStaffMap();
+
+        // 【】でスタッフ制限を抽出
         const restrictMatch = effectText.match(/【([^】]+)】/);
         if (restrictMatch) {
-            const allowed = restrictMatch[1];
-            const staffMap = {
-                '室長': 'leader',
-                '講師': 'teacher',
-                '事務': 'staff',
-                '専任講師': 'teacher'
-            };
-
-            result.restrictions = allowed.split('・').map(s => staffMap[s.trim()]).filter(Boolean);
-        }
-
-        // 基本効果を抽出（体験+2、入塾+3など）
-        const baseMatches = effectText.matchAll(/([体験入塾満足経理])\+(\d+)/g);
-        for (const match of baseMatches) {
-            const statusMap = {
-                '体験': 'experience',
-                '入塾': 'enrollment',
-                '満足': 'satisfaction',
-                '経理': 'accounting'
-            };
-
-            // 〈〉の中にある効果は条件付きなのでスキップ
-            const isConditional = effectText.indexOf('〈') > -1 &&
-                effectText.indexOf(match[0]) > effectText.indexOf('〈');
-
-            if (!isConditional) {
-                result.base.push({
-                    type: statusMap[match[1]],
-                    value: parseInt(match[2])
-                });
-            }
-        }
-
-        // 条件付き効果を抽出（〈室長〉さらに体験+2など）
-        const condMatches = effectText.matchAll(/〈([^〉]+)〉([^。〈]*)/g);
-        for (const match of condMatches) {
-            const condition = match[1].trim();
-            const condEffect = match[2].trim();
-
-            // スタッフ条件
-            const staffCondMap = {
-                '室長': 'leader',
-                '講師': 'teacher',
-                '事務': 'staff'
-            };
-
-            if (staffCondMap[condition]) {
-                // スタッフ条件の場合
-                if (staff === staffCondMap[condition]) {
-                    const effectMatches = condEffect.matchAll(/([体験入塾満足経理])\+(\d+)/g);
-                    for (const em of effectMatches) {
-                        const statusMap = {
-                            '体験': 'experience',
-                            '入塾': 'enrollment',
-                            '満足': 'satisfaction',
-                            '経理': 'accounting'
-                        };
-
-                        result.conditional.push({
-                            type: statusMap[em[1]],
-                            value: parseInt(em[2]),
-                            condition: `staff:${staff}`
-                        });
-                    }
-                }
-            } else if (condition.includes('以上') || condition.includes('以下')) {
-                // ステータス条件（例: 満足8以上）
-                result.conditional.push({
-                    rawCondition: condition,
-                    rawEffect: condEffect,
-                    needsGameState: true
-                });
-            }
-        }
-
-        // マイナス効果を抽出
-        const negMatches = effectText.matchAll(/([体験入塾満足経理])-(\d+)/g);
-        for (const match of negMatches) {
-            const statusMap = {
-                '体験': 'experience',
-                '入塾': 'enrollment',
-                '満足': 'satisfaction',
-                '経理': 'accounting'
-            };
-
-            result.base.push({
-                type: statusMap[match[1]],
-                value: -parseInt(match[2])
+            const staffNames = restrictMatch[1].split('・');
+            staffNames.forEach(name => {
+                const mapped = staffMap[name.trim()];
+                if (mapped) result.staffRestrictions.push(mapped);
             });
         }
 
+        // 〈〉条件付きブロックを抽出して処理
+        const conditionalRegex = /〈([^〉]+)〉([^。〈]+)/g;
+        let condMatch;
+        const conditionalRanges = [];
+
+        while ((condMatch = conditionalRegex.exec(effectText)) !== null) {
+            const condition = condMatch[1].trim();
+            const effectPart = condMatch[2].trim();
+            conditionalRanges.push({
+                start: condMatch.index,
+                end: condMatch.index + condMatch[0].length
+            });
+
+            const block = {
+                condition: this.parseCondition(condition, staffMap, statusMap),
+                effects: this.parseEffectPart(effectPart, statusMap)
+            };
+            result.conditionalBlocks.push(block);
+        }
+
+        // 基本効果を抽出（〈〉の外部にある効果）
+        // まず効果テキストから〈〉ブロックを除去して基本効果を抽出
+        let baseText = effectText;
+        // 【】ブロックも除去
+        baseText = baseText.replace(/【[^】]+】/g, '');
+        // 〈〉ブロックを除去（〈条件〉効果。の形式）
+        baseText = baseText.replace(/〈[^〉]+〉[^。〈]*/g, '');
+
+        result.baseEffects = this.parseEffectPart(baseText, statusMap);
+
         return result;
+    }
+
+    /**
+     * 条件部分をパース
+     */
+    parseCondition(conditionText, staffMap, statusMap) {
+        // スタッフ条件（例: 室長、室長・講師）
+        const staffNames = conditionText.split('・');
+        const staffConditions = staffNames
+            .map(name => staffMap[name.trim()])
+            .filter(Boolean);
+
+        if (staffConditions.length > 0) {
+            return { type: 'staff', staffList: staffConditions };
+        }
+
+        // ステータス条件（例: 満足8以上、入塾9以下、経理13以下）
+        const statusCondMatch = conditionText.match(/(体験|入塾|満足|経理)(\d+)(以上|以下)/);
+        if (statusCondMatch) {
+            return {
+                type: 'status',
+                status: statusMap[statusCondMatch[1]],
+                value: parseInt(statusCondMatch[2]),
+                comparison: statusCondMatch[3] === '以上' ? 'gte' : 'lte'
+            };
+        }
+
+        // 不明な条件
+        return { type: 'unknown', raw: conditionText };
+    }
+
+    /**
+     * 効果部分をパース（「体験+2」「入塾+3、満足-1」「経理を14にする」など）
+     */
+    parseEffectPart(effectText, statusMap) {
+        const effects = [];
+
+        // 「経理を14にする」形式（絶対値設定）
+        const setMatch = effectText.match(/(体験|入塾|満足|経理)を(\d+)にする/);
+        if (setMatch) {
+            effects.push({
+                type: 'set',
+                status: statusMap[setMatch[1]],
+                value: parseInt(setMatch[2])
+            });
+        }
+
+        // 「体験+2」「入塾-1」形式（相対値変更）
+        const changeRegex = /(体験|入塾|満足|経理)([+\-])(\d+)/g;
+        let changeMatch;
+        while ((changeMatch = changeRegex.exec(effectText)) !== null) {
+            const status = statusMap[changeMatch[1]];
+            const sign = changeMatch[2] === '+' ? 1 : -1;
+            const value = parseInt(changeMatch[3]) * sign;
+
+            effects.push({
+                type: 'change',
+                status: status,
+                value: value
+            });
+        }
+
+        return effects;
+    }
+
+    /**
+     * 条件を評価
+     */
+    evaluateCondition(condition, staff, gameState) {
+        if (condition.type === 'staff') {
+            return condition.staffList.includes(staff);
+        }
+
+        if (condition.type === 'status') {
+            const currentValue = gameState.player[condition.status];
+            if (condition.comparison === 'gte') {
+                return currentValue >= condition.value;
+            } else {
+                return currentValue <= condition.value;
+            }
+        }
+
+        // 不明な条件は適用しない
+        return false;
     }
 
     /**
      * カード効果を適用
      */
     applyCardEffect(card, staff, gameState) {
-        const parsed = this.parseEffect(card.effect, staff);
-
-        // スタッフ制限チェック
-        if (parsed.restrictions.length > 0 && !parsed.restrictions.includes(staff)) {
-            this.logger?.log(`${card.cardName}は指定されたスタッフに配置できません（NG）`, 'error');
+        if (!card || !card.effect) {
+            this.logger?.log('カード効果が空です', 'error');
             return false;
         }
 
-        this.logger?.log(`カード効果発動: ${card.cardName} (${card.category})`, 'action');
+        const parsed = this.parseEffect(card.effect);
+        const staffNames = { leader: '室長', teacher: '講師', staff: '事務' };
+
+        // スタッフ制限チェック
+        if (parsed.staffRestrictions.length > 0 && !parsed.staffRestrictions.includes(staff)) {
+            this.logger?.log(`${card.cardName}は${staffNames[staff]}に配置できません`, 'error');
+            return false;
+        }
+
+        this.logger?.log(`カード効果発動: ${card.cardName} (${staffNames[staff]})`, 'action');
 
         // 基本効果を適用
-        parsed.base.forEach(effect => {
-            gameState.updateStatus(effect.type, effect.value);
+        parsed.baseEffects.forEach(effect => {
+            this.applyEffect(effect, gameState);
         });
 
-        // 条件付き効果を適用
-        parsed.conditional.forEach(effect => {
-            if (effect.needsGameState) {
-                // ステータス条件の効果（未実装の場合は警告）
-                this.logger?.log(`条件付き効果（未実装）: ${effect.rawCondition}`, 'info');
-            } else {
-                // スタッフ条件の効果
-                gameState.updateStatus(effect.type, effect.value);
+        // 条件付き効果を評価・適用
+        parsed.conditionalBlocks.forEach(block => {
+            if (this.evaluateCondition(block.condition, staff, gameState)) {
+                const conditionName = this.getConditionName(block.condition);
+                this.logger?.log(`  条件成立: ${conditionName}`, 'info');
+                block.effects.forEach(effect => {
+                    this.applyEffect(effect, gameState);
+                });
             }
         });
 
         return true;
+    }
+
+    /**
+     * 単一効果を適用
+     */
+    applyEffect(effect, gameState) {
+        const statusNames = {
+            experience: '体験',
+            enrollment: '入塾',
+            satisfaction: '満足',
+            accounting: '経理'
+        };
+
+        if (effect.type === 'set') {
+            const before = gameState.player[effect.status];
+            gameState.player[effect.status] = effect.value;
+            this.logger?.log(`  ${statusNames[effect.status]}: ${before} → ${effect.value}`, 'status');
+        } else if (effect.type === 'change') {
+            const before = gameState.player[effect.status];
+            gameState.updateStatus(effect.status, effect.value);
+            const after = gameState.player[effect.status];
+            const sign = effect.value > 0 ? '+' : '';
+            this.logger?.log(`  ${statusNames[effect.status]}: ${before} → ${after} (${sign}${effect.value})`, 'status');
+        }
+    }
+
+    /**
+     * 条件の表示名を取得
+     */
+    getConditionName(condition) {
+        if (condition.type === 'staff') {
+            const staffNames = { leader: '室長', teacher: '講師', staff: '事務' };
+            return condition.staffList.map(s => staffNames[s]).join('・');
+        }
+        if (condition.type === 'status') {
+            const statusNames = {
+                experience: '体験',
+                enrollment: '入塾',
+                satisfaction: '満足',
+                accounting: '経理'
+            };
+            const comp = condition.comparison === 'gte' ? '以上' : '以下';
+            return `${statusNames[condition.status]}${condition.value}${comp}`;
+        }
+        return condition.raw || '不明';
     }
 }
