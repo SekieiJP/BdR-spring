@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="description" content="ボードでRinkai 春期講習編 - 学習塾経営シミュレーションゲーム">
+    <title>ボードでRinkai 春期講習編</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+    <div id="app">
+        <!-- ヘッダー -->
+        <header class="game-header">
+            <h1>ボードでRinkai</h1>
+            <div class="turn-info">
+                <span id="turn-name">準備中</span>
+                <span id="phase-name">-</span>
+            </div>
+        </header>
+
+        <!-- ステータスパネル -->
+        <section class="status-panel">
+            <div class="status-item status-experience">
+                <div class="status-label">体験</div>
+                <div class="status-value" id="status-experience">0</div>
+                <div class="status-target">目標: 10+</div>
+            </div>
+            <div class="status-item status-enrollment">
+                <div class="status-label">入塾</div>
+                <div class="status-value" id="status-enrollment">0</div>
+                <div class="status-target">目標: 8+</div>
+            </div>
+            <div class="status-item status-satisfaction">
+                <div class="status-label">満足</div>
+                <div class="status-value" id="status-satisfaction">3</div>
+                <div class="status-target">目標: 15</div>
+            </div>
+            <div class="status-item status-accounting">
+                <div class="status-label">経理</div>
+                <div class="status-value" id="status-accounting">3</div>
+                <div class="status-target">目標: 15</div>
+            </div>
+        </section>
+
+        <!-- メインコンテンツ -->
+        <main class="game-main">
+            <!-- 研修フェーズ用 -->
+            <section id="training-area" class="phase-area hidden">
+                <h2>研修: カード習得</h2>
+                <p class="instruction">3枚から1枚を選んで習得してください</p>
+                <div id="training-cards" class="card-selection"></div>
+                <button id="confirm-training" class="btn-primary" disabled>習得を確定</button>
+            </section>
+
+            <!-- 教室行動フェーズ用 -->
+            <section id="action-area" class="phase-area hidden">
+                <h2>教室行動: カード配置</h2>
+                <p class="instruction">手札から3枚を選び、スタッフに配置してください</p>
+
+                <!-- スタッフ配置エリア -->
+                <div class="staff-area">
+                    <div class="staff-slot" data-staff="leader">
+                        <div class="staff-label">室長</div>
+                        <div class="card-slot" id="slot-leader" data-staff="leader">
+                            <span class="slot-placeholder">タップまたはドラッグ</span>
+                        </div>
+                    </div>
+                    <div class="staff-slot" data-staff="teacher">
+                        <div class="staff-label">講師</div>
+                        <div class="card-slot" id="slot-teacher" data-staff="teacher">
+                            <span class="slot-placeholder">タップまたはドラッグ</span>
+                        </div>
+                    </div>
+                    <div class="staff-slot" data-staff="staff">
+                        <div class="staff-label">事務</div>
+                        <div class="card-slot" id="slot-staff" data-staff="staff">
+                            <span class="slot-placeholder">タップまたはドラッグ</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 手札エリア -->
+                <div class="hand-area">
+                    <h3>手札</h3>
+                    <div id="hand-cards" class="card-list"></div>
+                </div>
+
+                <button id="confirm-action" class="btn-primary" disabled>アクションを実行</button>
+            </section>
+
+            <!-- 教室会議フェーズ用 -->
+            <section id="meeting-area" class="phase-area hidden">
+                <h2>教室会議: カード削除</h2>
+                <p class="instruction">デッキから最大<span id="delete-count">0</span>枚削除できます</p>
+                <div id="deck-cards" class="card-list"></div>
+                <div class="selected-info">
+                    選択中: <span id="selected-count">0</span> / <span id="max-delete">0</span>
+                </div>
+                <button id="confirm-meeting" class="btn-primary">次のターンへ</button>
+            </section>
+
+            <!-- ゲーム終了画面 -->
+            <section id="result-area" class="phase-area hidden">
+                <h2>ゲーム終了</h2>
+                <div class="result-summary">
+                    <div class="result-item">
+                        <span class="result-label">目標ポイント:</span>
+                        <span class="result-value" id="result-points">0</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">退塾数:</span>
+                        <span class="result-value" id="result-withdrawal">0</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">動員合計:</span>
+                        <span class="result-value" id="result-mobilization">0</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">入退差:</span>
+                        <span class="result-value" id="result-diff">0</span>
+                    </div>
+                </div>
+                <div class="high-score">
+                    <p>ハイスコア: <span id="high-score">-</span></p>
+                </div>
+                <div class="result-actions">
+                    <button id="share-score" class="btn-secondary">スコア共有</button>
+                    <button id="restart-game" class="btn-primary">もう一度プレイ</button>
+                </div>
+            </section>
+        </main>
+
+        <!-- ログエリア（トグル可能） -->
+        <aside class="log-area">
+            <div class="log-header" id="log-toggle">
+                <span>📋 ログ</span>
+                <span class="toggle-icon">▼</span>
+            </div>
+            <div id="log-content" class="log-content">
+                <div id="log-messages" class="log-messages"></div>
+            </div>
+        </aside>
+
+        <!-- スタート画面 -->
+        <div id="start-overlay" class="overlay">
+            <div class="overlay-content">
+                <h1>ボードでRinkai</h1>
+                <h2>春期講習編</h2>
+                <p>学習塾の室長となり、8ターンで最高の成果を目指そう！</p>
+                <button id="start-game" class="btn-primary btn-large">ゲーム開始</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScriptモジュール（キャッシュバスター付き v20260205） -->
+    <script type="module" src="js/main.js?v=20260205-0830"></script>
+</body>
+
+</html>
