@@ -1,0 +1,578 @@
+/* ==================== リセット・基本設定 ==================== */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    /* カテゴリ別カラー（色覚多様性配慮） */
+    --color-mobilization: #3B82F6; /* 動員: 青 */
+    --color-teaching: #10B981;     /* 教務: 緑 */
+    --color-affairs: #EC4899;      /* 庶務: 桃 */
+    --color-response: #F97316;     /* 応対: オレンジ */
+    
+    /* レアリティカラー */
+    --color-n: #9CA3AF;    /* N: グレー */
+    --color-r: #60A5FA;    /* R: ライトブルー */
+    --color-sr: #A78BFA;   /* SR: パープル */
+    --color-ssr: #FBBF24;  /* SSR: ゴールド */
+    
+    /* UIカラー */
+    --color-bg: #1F2937;
+    --color-bg-light: #374151;
+    --color-bg-card: #4B5563;
+    --color-text: #F9FAFB;
+    --color-text-secondary: #D1D5DB;
+    --color-border: #6B7280;
+    --color-primary: #3B82F6;
+    --color-success: #10B981;
+    --color-warning: #F59E0B;
+    --color-danger: #EF4444;
+    
+    /* スペーシング */
+    --spacing-xs: 0.25rem;
+    --spacing-sm: 0.5rem;
+    --spacing-md: 1rem;
+    --spacing-lg: 1.5rem;
+    --spacing-xl: 2rem;
+    
+    /* ボーダー */
+    --border-radius: 0.5rem;
+    --border-radius-sm: 0.25rem;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+    background: linear-gradient(135deg, #1F2937 0%, #111827 100%);
+    color: var(--color-text);
+    min-height: 100vh;
+    overflow-x: hidden;
+}
+
+/* ==================== レイアウト ==================== */
+#app {
+    max-width: 480px;
+    margin: 0 auto;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* ==================== ヘッダー ==================== */
+.game-header {
+    background: var(--color-bg-light);
+    padding: var(--spacing-md);
+    border-bottom: 2px solid var(--color-primary);
+    text-align: center;
+}
+
+.game-header h1 {
+    font-size: 1.5rem;
+    margin-bottom: var(--spacing-sm);
+    color: var(--color-primary);
+}
+
+.turn-info {
+    display: flex;
+    justify-content: center;
+    gap: var(--spacing-md);
+    font-size: 0.875rem;
+    color: var(--color-text-secondary);
+}
+
+/* ==================== ステータスパネル ==================== */
+.status-panel {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md);
+    background: var(--color-bg);
+}
+
+.status-item {
+    background: var(--color-bg-light);
+    padding: var(--spacing-md);
+    border-radius: var(--border-radius);
+    border-left: 4px solid;
+    text-align: center;
+}
+
+.status-experience {
+    border-color: var(--color-mobilization);
+}
+
+.status-enrollment {
+    border-color: var(--color-teaching);
+}
+
+.status-satisfaction {
+    border-color: var(--color-response);
+}
+
+.status-accounting {
+    border-color: var(--color-affairs);
+}
+
+.status-label {
+    font-size: 0.75rem;
+    color: var(--color-text-secondary);
+    margin-bottom: var(--spacing-xs);
+}
+
+.status-value {
+    font-size: 2rem;
+    font-weight: bold;
+    margin-bottom: var(--spacing-xs);
+}
+
+.status-target {
+    font-size: 0.625rem;
+    color: var(--color-text-secondary);
+}
+
+/* ==================== メインコンテンツ ==================== */
+.game-main {
+    flex: 1;
+    padding: var(--spacing-md);
+}
+
+.phase-area {
+    animation: fadeIn 0.3s ease-in;
+}
+
+.phase-area.hidden {
+    display: none;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.phase-area h2 {
+    font-size: 1.25rem;
+    margin-bottom: var(--spacing-sm);
+    color: var(--color-primary);
+}
+
+.instruction {
+    font-size: 0.875rem;
+    color: var(--color-text-secondary);
+    margin-bottom: var(--spacing-lg);
+    padding: var(--spacing-sm);
+    background: var(--color-bg-light);
+    border-radius: var(--border-radius-sm);
+}
+
+/* ==================== カード ==================== */
+.card {
+    background: var(--color-bg-card);
+    border-radius: var(--border-radius);
+    padding: var(--spacing-md);
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    border: 2px solid transparent;
+    position: relative;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.card.selected {
+    border-color: var(--color-primary);
+    background: var(--color-bg-light);
+}
+
+.card.dragging {
+    opacity: 0.5;
+}
+
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-sm);
+}
+
+.card-name {
+    font-weight: bold;
+    font-size: 0.875rem;
+}
+
+.card-rarity {
+    font-size: 0.75rem;
+    padding: 2px 6px;
+    border-radius: var(--border-radius-sm);
+    font-weight: bold;
+}
+
+.rarity-N {
+    background: var(--color-n);
+    color: #1F2937;
+}
+
+.rarity-R {
+    background: var(--color-r);
+    color: #1F2937;
+}
+
+.rarity-SR {
+    background: var(--color-sr);
+    color: #F9FAFB;
+}
+
+.rarity-SSR {
+    background: var(--color-ssr);
+    color: #1F2937;
+}
+
+.card-category {
+    font-size: 0.75rem;
+    margin-bottom: var(--spacing-sm);
+    padding: 2px 8px;
+    border-radius: var(--border-radius-sm);
+    display: inline-block;
+    font-weight: 500;
+}
+
+.category-動員 {
+    background: var(--color-mobilization);
+    color: var(--color-text);
+}
+
+.category-動員::before {
+    content: "📢 ";
+}
+
+.category-教務 {
+    background: var(--color-teaching);
+    color: var(--color-text);
+}
+
+.category-教務::before {
+    content: "📚 ";
+}
+
+.category-庶務 {
+    background: var(--color-affairs);
+    color: var(--color-text);
+}
+
+.category-庶務::before {
+    content: "📋 ";
+}
+
+.category-応対 {
+    background: var(--color-response);
+    color: var(--color-text);
+}
+
+.category-応対::before {
+    content: "💬 ";
+}
+
+.card-effect {
+    font-size: 0.75rem;
+    color: var(--color-text-secondary);
+    line-height: 1.4;
+}
+
+/* ==================== カードリスト ==================== */
+.card-list {
+    display: grid;
+    gap: var(--spacing-sm);
+}
+
+.card-selection {
+    display: grid;
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-lg);
+}
+
+/* ==================== スタッフエリア ==================== */
+.staff-area {
+    display: grid;
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-lg);
+}
+
+.staff-slot {
+    background: var(--color-bg-light);
+    padding: var(--spacing-md);
+    border-radius: var(--border-radius);
+}
+
+.staff-label {
+    font-size: 0.875rem;
+    font-weight: bold;
+    margin-bottom: var(--spacing-sm);
+    color: var(--color-primary);
+}
+
+.card-slot {
+    min-height: 100px;
+    border: 2px dashed var(--color-border);
+    border-radius: var(--border-radius);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: border-color 0.2s, background 0.2s;
+}
+
+.card-slot.drag-over {
+    border-color: var(--color-primary);
+    background: rgba(59, 130, 246, 0.1);
+}
+
+.card-slot.filled {
+    border-style: solid;
+    border-color: var(--color-success);
+}
+
+.slot-placeholder {
+    color: var(--color-text-secondary);
+    font-size: 0.75rem;
+    text-align: center;
+}
+
+/* ==================== 手札エリア ==================== */
+.hand-area {
+    background: var(--color-bg-light);
+    padding: var(--spacing-md);
+    border-radius: var(--border-radius);
+    margin-bottom: var(--spacing-lg);
+}
+
+.hand-area h3 {
+    font-size: 1rem;
+    margin-bottom: var(--spacing-md);
+    color: var(--color-text-secondary);
+}
+
+/* ==================== ボタン ==================== */
+.btn-primary, .btn-secondary {
+    width: 100%;
+    padding: var(--spacing-md);
+    border: none;
+    border-radius: var(--border-radius);
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+}
+
+.btn-primary {
+    background: var(--color-primary);
+    color: var(--color-text);
+}
+
+.btn-primary:hover:not(:disabled) {
+    background: #2563EB;
+    transform: translateY(-1px);
+}
+
+.btn-primary:disabled {
+    background: var(--color-border);
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+.btn-secondary {
+    background: var(--color-bg-light);
+    color: var(--color-text);
+    border: 2px solid var(--color-border);
+}
+
+.btn-secondary:hover {
+    border-color: var(--color-primary);
+}
+
+.btn-large {
+    padding: var(--spacing-lg);
+    font-size: 1.25rem;
+}
+
+/* ==================== ログエリア ==================== */
+.log-area {
+    background: var(--color-bg-light);
+    border-top: 2px solid var(--color-border);
+}
+
+.log-header {
+    padding: var(--spacing-md);
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    user-select: none;
+}
+
+.log-header:hover {
+    background: var(--color-bg-card);
+}
+
+.toggle-icon {
+    transition: transform 0.3s;
+}
+
+.log-area.collapsed .toggle-icon {
+    transform: rotate(-90deg);
+}
+
+.log-content {
+    max-height: 200px;
+    overflow-y: auto;
+    transition: max-height 0.3s;
+}
+
+.log-area.collapsed .log-content {
+    max-height: 0;
+    overflow: hidden;
+}
+
+.log-messages {
+    padding: 0 var(--spacing-md) var(--spacing-md);
+}
+
+.log-message {
+    font-size: 0.75rem;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    margin-bottom: var(--spacing-xs);
+    border-left: 3px solid;
+    border-radius: var(--border-radius-sm);
+    background: var(--color-bg);
+}
+
+.log-info {
+    border-color: var(--color-primary);
+}
+
+.log-action {
+    border-color: var(--color-success);
+}
+
+.log-status {
+    border-color: var(--color-warning);
+}
+
+.log-error {
+    border-color: var(--color-danger);
+}
+
+/* ==================== オーバーレイ ==================== */
+.overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.overlay.hidden {
+    display: none;
+}
+
+.overlay-content {
+    text-align: center;
+    padding: var(--spacing-xl);
+    max-width: 400px;
+}
+
+.overlay-content h1 {
+    font-size: 2rem;
+    margin-bottom: var(--spacing-sm);
+    color: var(--color-primary);
+}
+
+.overlay-content h2 {
+    font-size: 1.25rem;
+    margin-bottom: var(--spacing-lg);
+    color: var(--color-text-secondary);
+}
+
+.overlay-content p {
+    margin-bottom: var(--spacing-xl);
+    color: var(--color-text-secondary);
+}
+
+/* ==================== 結果画面 ==================== */
+.result-summary {
+    background: var(--color-bg-light);
+    padding: var(--spacing-lg);
+    border-radius: var(--border-radius);
+    margin-bottom: var(--spacing-lg);
+}
+
+.result-item {
+    display: flex;
+    justify-content: space-between;
+    padding: var(--spacing-sm) 0;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.result-item:last-child {
+    border-bottom: none;
+}
+
+.result-label {
+    color: var(--color-text-secondary);
+}
+
+.result-value {
+    font-weight: bold;
+    font-size: 1.25rem;
+}
+
+.high-score {
+    text-align: center;
+    margin-bottom: var(--spacing-lg);
+    font-size: 1.125rem;
+    color: var(--color-warning);
+}
+
+.result-actions {
+    display: grid;
+    gap: var(--spacing-md);
+}
+
+.selected-info {
+    text-align: center;
+    margin: var(--spacing-md) 0;
+    font-size: 0.875rem;
+    color: var(--color-text-secondary);
+}
+
+/* ==================== レスポンシブ調整 ==================== */
+@media (max-width: 374px) {
+    .status-value {
+        font-size: 1.5rem;
+    }
+    
+    .card-name {
+        font-size: 0.75rem;
+    }
+}
+
+@media (min-width: 481px) {
+    #app {
+        max-width: 600px;
+    }
+    
+    .status-panel {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
