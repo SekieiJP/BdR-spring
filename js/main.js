@@ -1,13 +1,13 @@
 /**
  * Main - エントリーポイント
- * v20260205-0830: キャッシュバスター追加
+ * v20260205-2310: 全改善完了
  */
-import { Logger } from './logger.js?v=20260205-0830';
-import { GameState } from './gameState.js?v=20260205-0830';
-import { CardManager } from './cardManager.js?v=20260205-0830';
-import { TurnManager } from './turnManager.js?v=20260205-0830';
-import { ScoreManager } from './scoreManager.js?v=20260205-0830';
-import { UIController } from './uiController.js?v=20260205-0830';
+import { Logger } from './logger.js?v=20260205-2310';
+import { GameState } from './gameState.js?v=20260205-2310';
+import { CardManager } from './cardManager.js?v=20260205-2310';
+import { TurnManager } from './turnManager.js?v=20260205-2310';
+import { ScoreManager } from './scoreManager.js?v=20260205-2310';
+import { UIController } from './uiController.js?v=20260205-2310';
 
 class Game {
     constructor() {

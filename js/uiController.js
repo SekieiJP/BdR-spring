@@ -23,6 +23,29 @@ export class UIController {
 
         // イベントリスナー設定
         this.setupEventListeners();
+
+        // スクロール検知設定
+        this.setupScrollListener();
+    }
+
+    /**
+     * スクロール検知設定
+     */
+    setupScrollListener() {
+        const stickyHeader = document.getElementById('sticky-header');
+        const fullStatusPanel = document.getElementById('full-status-panel');
+
+        if (!stickyHeader || !fullStatusPanel) return;
+
+        window.addEventListener('scroll', () => {
+            const panelRect = fullStatusPanel.getBoundingClientRect();
+            // ステータスパネルが完全に画面外に出たらコンパクトヘッダーを表示
+            if (panelRect.bottom < 0) {
+                stickyHeader.classList.remove('hidden');
+            } else {
+                stickyHeader.classList.add('hidden');
+            }
+        });
     }
 
     /**
@@ -60,9 +83,15 @@ export class UIController {
     updateStatusDisplay() {
         const statuses = ['experience', 'enrollment', 'satisfaction', 'accounting'];
         statuses.forEach(status => {
+            // フル表示
             const elem = document.getElementById(`status-${status}`);
             if (elem) {
                 elem.textContent = this.gameState.player[status];
+            }
+            // コンパクト表示
+            const compactElem = document.getElementById(`compact-${status}`);
+            if (compactElem) {
+                compactElem.textContent = this.gameState.player[status];
             }
         });
     }
@@ -73,11 +102,21 @@ export class UIController {
     updateTurnDisplay() {
         const turnName = document.getElementById('turn-name');
         const phaseName = document.getElementById('phase-name');
+        const compactTurn = document.getElementById('compact-turn');
+        const compactPhase = document.getElementById('compact-phase');
+        const compactRecommended = document.getElementById('compact-recommended');
+
+        let turnText = '準備中';
+        let recommendedText = '-';
 
         if (this.gameState.turn < 8) {
             const config = this.turnManager.getCurrentTurnConfig();
-            if (turnName) turnName.textContent = config.name;
+            turnText = config.name;
+            recommendedText = config.recommended || '-';
         }
+
+        if (turnName) turnName.textContent = turnText;
+        if (compactTurn) compactTurn.textContent = turnText;
 
         const phaseNames = {
             start: '準備中',
@@ -87,9 +126,10 @@ export class UIController {
             end: '終了'
         };
 
-        if (phaseName) {
-            phaseName.textContent = phaseNames[this.gameState.phase] || '-';
-        }
+        const phaseText = phaseNames[this.gameState.phase] || '-';
+        if (phaseName) phaseName.textContent = phaseText;
+        if (compactPhase) compactPhase.textContent = phaseText;
+        if (compactRecommended) compactRecommended.textContent = recommendedText;
     }
 
     /**
@@ -215,7 +255,7 @@ export class UIController {
                 this.selectedTrainingCard = null;
             }
         }
-        
+
         // フェーズをtrainingに設定してからadvancePhaseを呼ぶ
         // これによりadvancePhaseがtraining→actionへ正しく遷移する
         this.gameState.phase = 'training';
@@ -231,11 +271,34 @@ export class UIController {
         this.updateTurnDisplay();
         this.updateStatusDisplay();
 
+        // スタッフスロットをクリア（前ターンのカード表示を削除）
+        this.clearStaffSlots();
+
+        // 配置済み状態もクリア
+        this.gameState.clearPlaced();
+
         // 手札表示
         this.renderHand();
 
         // スタッフスロットにドロップイベント設定
         this.setupDropZones();
+
+        // ボタン状態を更新
+        this.updateActionButtonState();
+    }
+
+    /**
+     * スタッフスロットのUIをクリア
+     */
+    clearStaffSlots() {
+        const staffIds = ['slot-leader', 'slot-teacher', 'slot-staff'];
+        staffIds.forEach(id => {
+            const slot = document.getElementById(id);
+            if (slot) {
+                slot.innerHTML = '<span class="slot-placeholder">タップまたはドラッグ</span>';
+                slot.classList.remove('filled');
+            }
+        });
     }
 
     /**
@@ -359,25 +422,167 @@ export class UIController {
     }
 
     /**
-     * アクション実行可能チェック
+     * アクションボタン状態更新（常に有効）
      */
-    checkActionReady() {
-        const placed = this.gameState.player.placed;
-        const allPlaced = Object.values(placed).every(card => card !== null);
-
+    updateActionButtonState() {
         const confirmBtn = document.getElementById('confirm-action');
         if (confirmBtn) {
-            confirmBtn.disabled = !allPlaced;
+            // ボタンは常に有効（未配置時は警告表示）
+            confirmBtn.disabled = false;
         }
+    }
+
+    /**
+     * 全スタッフ配置済みチェック
+     */
+    isAllStaffPlaced() {
+        const placed = this.gameState.player.placed;
+        return Object.values(placed).every(card => card !== null);
     }
 
     /**
      * アクション実行
      */
     onConfirmAction() {
-        this.turnManager.executeActions();
-        this.updateStatusDisplay();
+        // 未配置スタッフがいる場合は警告
+        if (!this.isAllStaffPlaced()) {
+            const confirmed = confirm('カードが配置されていないスタッフがいます。教室行動を確定させてよろしいですか？');
+            if (!confirmed) {
+                return;
+            }
+        }
 
+        // 実行前のステータスを記録
+        const beforeStats = {
+            experience: this.gameState.player.experience,
+            enrollment: this.gameState.player.enrollment,
+            satisfaction: this.gameState.player.satisfaction,
+            accounting: this.gameState.player.accounting
+        };
+
+        // アクション実行
+        const actionInfo = this.turnManager.executeActions();
+
+        // 実行後のステータス
+        const afterStats = {
+            experience: this.gameState.player.experience,
+            enrollment: this.gameState.player.enrollment,
+            satisfaction: this.gameState.player.satisfaction,
+            accounting: this.gameState.player.accounting
+        };
+
+        // ステータス変動演出を表示
+        this.showStatusAnimation(beforeStats, afterStats, actionInfo);
+    }
+
+    /**
+     * ステータス変動演出を表示
+     */
+    showStatusAnimation(beforeStats, afterStats, actionInfo) {
+        const overlay = document.getElementById('status-animation-overlay');
+        const header = document.getElementById('animation-header');
+        const cards = document.getElementById('animation-cards');
+
+        if (!overlay) {
+            // 演出要素がなければスキップして次へ進む
+            this.finishActionPhase();
+            return;
+        }
+
+        // 初期値を設定
+        document.getElementById('anim-exp-value').textContent = beforeStats.experience;
+        document.getElementById('anim-enr-value').textContent = beforeStats.enrollment;
+        document.getElementById('anim-sat-value').textContent = beforeStats.satisfaction;
+        document.getElementById('anim-acc-value').textContent = beforeStats.accounting;
+
+        // デルタをクリア
+        ['exp', 'enr', 'sat', 'acc'].forEach(id => {
+            const deltaElem = document.getElementById(`anim-${id}-delta`);
+            if (deltaElem) {
+                deltaElem.textContent = '';
+                deltaElem.className = 'anim-delta';
+            }
+        });
+
+        // オーバーレイ表示
+        overlay.classList.remove('hidden');
+        header.innerHTML = '';
+        cards.innerHTML = '';
+
+        // 演出シーケンス
+        const config = this.turnManager.getCurrentTurnConfig();
+        const placed = this.gameState.player.placed;
+
+        let delay = 500;
+
+        // おすすめ行動ボーナス表示
+        if (config.recommended) {
+            setTimeout(() => {
+                header.innerHTML = `🎯 おすすめ行動: ${config.recommended}`;
+            }, delay);
+            delay += 2000;
+        }
+
+        // 各カード効果表示
+        ['leader', 'teacher', 'staff'].forEach((staff, i) => {
+            const card = placed[staff];
+            if (card) {
+                setTimeout(() => {
+                    const staffNames = { leader: '室長', teacher: '講師', staff: '事務' };
+                    cards.innerHTML = `<div class="animation-card-item">${staffNames[staff]}: ${card.cardName}<br><small>${card.effect}</small></div>`;
+                }, delay + i * 1500);
+            }
+        });
+        delay += Object.values(placed).filter(c => c).length * 1500;
+
+        // ステータス更新アニメーション
+        setTimeout(() => {
+            cards.innerHTML = '';
+            header.innerHTML = '📊 ステータス変動';
+            this.animateStatusUpdate(beforeStats, afterStats);
+        }, delay);
+
+        // 演出終了
+        setTimeout(() => {
+            overlay.classList.add('hidden');
+            this.finishActionPhase();
+        }, delay + 2000);
+    }
+
+    /**
+     * ステータス更新アニメーション
+     */
+    animateStatusUpdate(before, after) {
+        const statMap = {
+            experience: 'exp',
+            enrollment: 'enr',
+            satisfaction: 'sat',
+            accounting: 'acc'
+        };
+
+        Object.entries(statMap).forEach(([key, id]) => {
+            const valueElem = document.getElementById(`anim-${id}-value`);
+            const deltaElem = document.getElementById(`anim-${id}-delta`);
+            const delta = after[key] - before[key];
+
+            if (valueElem) {
+                valueElem.textContent = after[key];
+                valueElem.classList.add('updating');
+                setTimeout(() => valueElem.classList.remove('updating'), 300);
+            }
+
+            if (deltaElem && delta !== 0) {
+                deltaElem.textContent = delta > 0 ? `+${delta}` : `${delta}`;
+                deltaElem.classList.add(delta > 0 ? 'positive' : 'negative');
+            }
+        });
+    }
+
+    /**
+     * アクションフェーズ終了処理
+     */
+    finishActionPhase() {
+        this.updateStatusDisplay();
         this.turnManager.advancePhase();
         this.showMeetingPhase();
     }
@@ -401,7 +606,7 @@ export class UIController {
     }
 
     /**
-     * デッキ表示
+     * デッキ表示（獲得ターン順にソート）
      */
     renderDeck(maxDelete) {
         const deckContainer = document.getElementById('deck-cards');
@@ -409,7 +614,14 @@ export class UIController {
 
         deckContainer.innerHTML = '';
 
-        this.gameState.player.deck.forEach(card => {
+        // 獲得ターン順（古い順）にソート
+        const sortedDeck = [...this.gameState.player.deck].sort((a, b) => {
+            const turnA = a.acquiredTurn ?? 0;
+            const turnB = b.acquiredTurn ?? 0;
+            return turnA - turnB;
+        });
+
+        sortedDeck.forEach(card => {
             const cardElem = this.createCardElement(card, {
                 clickable: maxDelete > 0,
                 onClick: (c, elem) => this.onDeckCardSelect(c, elem, maxDelete)
@@ -451,9 +663,12 @@ export class UIController {
 
         this.selectedCardsForDeletion = [];
 
-        // 手札補充
-        this.gameState.shuffleDeck();
-        this.gameState.drawCards(4);
+        // 手札補充は削除（アクションフェーズ開始時に引くため）
+        // 代わりに、残りの手札をデッキに戻す
+        this.gameState.player.hand.forEach(card => {
+            this.gameState.player.deck.push(card);
+        });
+        this.gameState.player.hand = [];
 
         // 次のターンへ
         this.turnManager.advancePhase();

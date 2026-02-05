@@ -7,17 +7,25 @@
 
 :root {
     /* カテゴリ別カラー（色覚多様性配慮） */
-    --color-mobilization: #3B82F6; /* 動員: 青 */
-    --color-teaching: #10B981;     /* 教務: 緑 */
-    --color-affairs: #EC4899;      /* 庶務: 桃 */
-    --color-response: #F97316;     /* 応対: オレンジ */
-    
+    --color-mobilization: #3B82F6;
+    /* 動員: 青 */
+    --color-teaching: #10B981;
+    /* 教務: 緑 */
+    --color-affairs: #EC4899;
+    /* 庶務: 桃 */
+    --color-response: #F97316;
+    /* 応対: オレンジ */
+
     /* レアリティカラー */
-    --color-n: #9CA3AF;    /* N: グレー */
-    --color-r: #60A5FA;    /* R: ライトブルー */
-    --color-sr: #A78BFA;   /* SR: パープル */
-    --color-ssr: #FBBF24;  /* SSR: ゴールド */
-    
+    --color-n: #9CA3AF;
+    /* N: グレー */
+    --color-r: #60A5FA;
+    /* R: ライトブルー */
+    --color-sr: #FBBF24;
+    /* SR: ゴールド（黄色） */
+    --color-ssr: #A78BFA;
+    /* SSR: パープル（紫色） */
+
     /* UIカラー */
     --color-bg: #1F2937;
     --color-bg-light: #374151;
@@ -29,14 +37,14 @@
     --color-success: #10B981;
     --color-warning: #F59E0B;
     --color-danger: #EF4444;
-    
+
     /* スペーシング */
     --spacing-xs: 0.25rem;
     --spacing-sm: 0.5rem;
     --spacing-md: 1rem;
     --spacing-lg: 1.5rem;
     --spacing-xl: 2rem;
-    
+
     /* ボーダー */
     --border-radius: 0.5rem;
     --border-radius-sm: 0.25rem;
@@ -57,6 +65,68 @@ body {
     min-height: 100vh;
     display: flex;
     flex-direction: column;
+}
+
+/* ==================== スクロール追従ヘッダー（コンパクト版） ==================== */
+.sticky-header {
+    position: fixed;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    max-width: 480px;
+    background: var(--color-bg-light);
+    border-bottom: 2px solid var(--color-primary);
+    padding: var(--spacing-sm);
+    z-index: 100;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: transform 0.3s ease;
+}
+
+.sticky-header.hidden {
+    transform: translateX(-50%) translateY(-100%);
+}
+
+.compact-info {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    font-size: 0.75rem;
+    color: var(--color-text);
+}
+
+.compact-divider {
+    color: var(--color-border);
+}
+
+.compact-stats {
+    display: flex;
+    gap: var(--spacing-xs);
+}
+
+.compact-stat {
+    font-size: 0.75rem;
+    font-weight: bold;
+    padding: 2px 6px;
+    border-radius: var(--border-radius-sm);
+}
+
+.compact-stat.stat-exp {
+    background: var(--color-mobilization);
+}
+
+.compact-stat.stat-enr {
+    background: var(--color-teaching);
+}
+
+.compact-stat.stat-sat {
+    background: var(--color-response);
+}
+
+.compact-stat.stat-acc {
+    background: var(--color-affairs);
 }
 
 /* ==================== ヘッダー ==================== */
@@ -150,6 +220,7 @@ body {
         opacity: 0;
         transform: translateY(10px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
@@ -359,7 +430,8 @@ body {
 }
 
 /* ==================== ボタン ==================== */
-.btn-primary, .btn-secondary {
+.btn-primary,
+.btn-secondary {
     width: 100%;
     padding: var(--spacing-md);
     border: none;
@@ -561,7 +633,7 @@ body {
     .status-value {
         font-size: 1.5rem;
     }
-    
+
     .card-name {
         font-size: 0.75rem;
     }
@@ -571,8 +643,121 @@ body {
     #app {
         max-width: 600px;
     }
-    
+
     .status-panel {
         grid-template-columns: repeat(4, 1fr);
     }
+}
+/* ==================== ステータス変動演出 ==================== */
+.status-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.95);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+}
+
+.status-overlay.hidden {
+    display: none;
+}
+
+.animation-content {
+    width: 100%;
+    max-width: 400px;
+    padding: var(--spacing-lg);
+    text-align: center;
+}
+
+.animation-header {
+    font-size: 1.25rem;
+    font-weight: bold;
+    color: var(--color-warning);
+    margin-bottom: var(--spacing-lg);
+    min-height: 2em;
+    animation: fadeSlideIn 0.5s ease;
+}
+
+.animation-cards {
+    min-height: 3em;
+    margin-bottom: var(--spacing-xl);
+    font-size: 1rem;
+    color: var(--color-text);
+}
+
+.animation-card-item {
+    padding: var(--spacing-sm);
+    margin-bottom: var(--spacing-sm);
+    background: var(--color-bg-light);
+    border-radius: var(--border-radius);
+    animation: fadeSlideIn 0.5s ease;
+}
+
+.animation-stats {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--spacing-md);
+}
+
+.anim-stat {
+    background: var(--color-bg-light);
+    padding: var(--spacing-md);
+    border-radius: var(--border-radius);
+    border-left: 4px solid;
+}
+
+.anim-exp { border-color: var(--color-mobilization); }
+.anim-enr { border-color: var(--color-teaching); }
+.anim-sat { border-color: var(--color-response); }
+.anim-acc { border-color: var(--color-affairs); }
+
+.anim-label {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--color-text-secondary);
+    margin-bottom: var(--spacing-xs);
+}
+
+.anim-value {
+    font-size: 2rem;
+    font-weight: bold;
+    display: inline;
+}
+
+.anim-delta {
+    font-size: 1rem;
+    font-weight: bold;
+    margin-left: var(--spacing-sm);
+}
+
+.anim-delta.positive {
+    color: var(--color-success);
+}
+
+.anim-delta.negative {
+    color: var(--color-danger);
+}
+
+@keyframes fadeSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes pulseValue {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.2); }
+}
+
+.anim-value.updating {
+    animation: pulseValue 0.3s ease;
 }

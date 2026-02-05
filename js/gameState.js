@@ -80,6 +80,10 @@ export class GameState {
      * カードをデッキに追加
      */
     addToDeck(card) {
+        // 獲得ターンを記録（未設定の場合のみ）
+        if (card.acquiredTurn === undefined) {
+            card.acquiredTurn = this.turn;
+        }
         this.player.deck.push(card);
         this.logger?.log(`デッキに追加: ${card.cardName} (${card.rarity})`, 'action');
     }

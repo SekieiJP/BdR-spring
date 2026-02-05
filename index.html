@@ -11,8 +11,25 @@
 
 <body>
     <div id="app">
-        <!-- ヘッダー -->
-        <header class="game-header">
+        <!-- スクロール追従ヘッダー（コンパクト版） -->
+        <div id="sticky-header" class="sticky-header hidden">
+            <div class="compact-info">
+                <span id="compact-turn">-</span>
+                <span class="compact-divider">|</span>
+                <span id="compact-phase">-</span>
+                <span class="compact-divider">|</span>
+                <span id="compact-recommended">-</span>
+            </div>
+            <div class="compact-stats">
+                <span class="compact-stat stat-exp"><span id="compact-experience">0</span></span>
+                <span class="compact-stat stat-enr"><span id="compact-enrollment">0</span></span>
+                <span class="compact-stat stat-sat"><span id="compact-satisfaction">3</span></span>
+                <span class="compact-stat stat-acc"><span id="compact-accounting">3</span></span>
+            </div>
+        </div>
+
+        <!-- ヘッダー（フル版） -->
+        <header class="game-header" id="full-header">
             <h1>ボードでRinkai</h1>
             <div class="turn-info">
                 <span id="turn-name">準備中</span>
@@ -21,7 +38,7 @@
         </header>
 
         <!-- ステータスパネル -->
-        <section class="status-panel">
+        <section class="status-panel" id="full-status-panel">
             <div class="status-item status-experience">
                 <div class="status-label">体験</div>
                 <div class="status-value" id="status-experience">0</div>
@@ -126,7 +143,6 @@
                     <p>ハイスコア: <span id="high-score">-</span></p>
                 </div>
                 <div class="result-actions">
-                    <button id="share-score" class="btn-secondary">スコア共有</button>
                     <button id="restart-game" class="btn-primary">もう一度プレイ</button>
                 </div>
             </section>
@@ -152,10 +168,40 @@
                 <button id="start-game" class="btn-primary btn-large">ゲーム開始</button>
             </div>
         </div>
+
+        <!-- ステータス変動演出オーバーレイ -->
+        <div id="status-animation-overlay" class="status-overlay hidden">
+            <div class="animation-content">
+                <div id="animation-header" class="animation-header"></div>
+                <div id="animation-cards" class="animation-cards"></div>
+                <div class="animation-stats">
+                    <div class="anim-stat anim-exp">
+                        <span class="anim-label">体験</span>
+                        <span id="anim-exp-value" class="anim-value">0</span>
+                        <span id="anim-exp-delta" class="anim-delta"></span>
+                    </div>
+                    <div class="anim-stat anim-enr">
+                        <span class="anim-label">入塾</span>
+                        <span id="anim-enr-value" class="anim-value">0</span>
+                        <span id="anim-enr-delta" class="anim-delta"></span>
+                    </div>
+                    <div class="anim-stat anim-sat">
+                        <span class="anim-label">満足</span>
+                        <span id="anim-sat-value" class="anim-value">0</span>
+                        <span id="anim-sat-delta" class="anim-delta"></span>
+                    </div>
+                    <div class="anim-stat anim-acc">
+                        <span class="anim-label">経理</span>
+                        <span id="anim-acc-value" class="anim-value">0</span>
+                        <span id="anim-acc-delta" class="anim-delta"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <!-- JavaScriptモジュール（キャッシュバスター付き v20260205） -->
-    <script type="module" src="js/main.js?v=20260205-0830"></script>
+    <!-- JavaScriptモジュール（キャッシュバスター付き v20260205-2） -->
+    <script type="module" src="js/main.js?v=20260205-2310"></script>
 </body>
 
 </html>
