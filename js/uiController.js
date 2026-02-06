@@ -75,6 +75,18 @@ export class UIController {
         // スコア共有ボタン
         const shareBtn = document.getElementById('share-score');
         shareBtn?.addEventListener('click', () => this.onShareScore());
+
+        // 情報表示ボタン（デッキ内訳）
+        ['btn-deck-full', 'btn-deck-compact'].forEach(id => {
+            const btn = document.getElementById(id);
+            btn?.addEventListener('click', () => this.showDeckOverlay());
+        });
+
+        // 情報表示ボタン（スケジュール一覧）
+        ['btn-schedule-full', 'btn-schedule-compact'].forEach(id => {
+            const btn = document.getElementById(id);
+            btn?.addEventListener('click', () => this.showScheduleOverlay());
+        });
     }
 
     /**
@@ -147,6 +159,9 @@ export class UIController {
 
     /**
      * カードHTML生成
+     * @param {Object} card - カードデータ
+     * @param {Object} options - オプション
+     * @param {boolean} options.compact - コンパクトモード（3列表示時、topEffect表示）
      */
     createCardElement(card, options = {}) {
         const cardDiv = document.createElement('div');
@@ -161,16 +176,55 @@ export class UIController {
             cardDiv.addEventListener('click', () => options.onClick(card, cardDiv));
         }
 
+        // カテゴリ色クラス
+        const categoryClass = `category-${card.category}`;
+
+        // 表示する効果テキスト（compactモードではtopEffect、通常はeffect）
+        const displayEffect = options.compact && card.topEffect ? card.topEffect : card.effect;
+
         cardDiv.innerHTML = `
             <div class="card-header">
                 <span class="card-name">${card.cardName}</span>
+            </div>
+            <div class="card-meta">
+                <span class="card-category-text ${categoryClass}">${card.category}</span>
                 <span class="card-rarity rarity-${card.rarity}">${card.rarity}</span>
             </div>
-            <div class="card-category category-${card.category}">${card.category}</div>
-            <div class="card-effect">${card.effect}</div>
+            <div class="card-effect">${displayEffect}</div>
         `;
 
+        // 長押しで詳細効果を表示（compactモード時のみ）
+        if (options.compact && card.topEffect && card.effect !== card.topEffect) {
+            let pressTimer;
+            cardDiv.addEventListener('touchstart', (e) => {
+                pressTimer = setTimeout(() => {
+                    this.showEffectTooltip(card, e);
+                }, 500);
+            });
+            cardDiv.addEventListener('touchend', () => clearTimeout(pressTimer));
+            cardDiv.addEventListener('touchmove', () => clearTimeout(pressTimer));
+        }
+
         return cardDiv;
+    }
+
+    /**
+     * 効果詳細ツールチップ表示
+     */
+    showEffectTooltip(card, event) {
+        // 既存のツールチップを削除
+        const existing = document.querySelector('.effect-tooltip');
+        if (existing) existing.remove();
+
+        const tooltip = document.createElement('div');
+        tooltip.className = 'effect-tooltip';
+        tooltip.innerHTML = `
+            <div class="tooltip-title">${card.cardName}</div>
+            <div class="tooltip-effect">${card.effect}</div>
+            <div class="tooltip-close">タップで閉じる</div>
+        `;
+        tooltip.addEventListener('click', () => tooltip.remove());
+        document.body.appendChild(tooltip);
     }
 
     /**
@@ -200,6 +254,7 @@ export class UIController {
         trainingCards.forEach(card => {
             const cardElem = this.createCardElement(card, {
                 clickable: true,
+                compact: true,
                 onClick: (c, elem) => this.onInitialCardSelect(c, elem, trainingCards)
             });
             container.appendChild(cardElem);
@@ -314,6 +369,7 @@ export class UIController {
             const cardElem = this.createCardElement(card, {
                 draggable: true,
                 clickable: true,
+                compact: false,
                 onClick: (c) => this.onHandCardTap(c)
             });
             handContainer.appendChild(cardElem);
@@ -348,6 +404,7 @@ export class UIController {
             slot.innerHTML = '';
             const cardElem = this.createCardElement(card, {
                 clickable: true,
+                compact: true,
                 onClick: () => this.onPlacedCardClick(card, staff)
             });
             slot.appendChild(cardElem);
@@ -489,20 +546,11 @@ export class UIController {
             return;
         }
 
-        // 初期値を設定
-        document.getElementById('anim-exp-value').textContent = beforeStats.experience;
-        document.getElementById('anim-enr-value').textContent = beforeStats.enrollment;
-        document.getElementById('anim-sat-value').textContent = beforeStats.satisfaction;
-        document.getElementById('anim-acc-value').textContent = beforeStats.accounting;
+        // 現在のステータス（リアルタイム更新用）
+        const currentStats = { ...beforeStats };
 
-        // デルタをクリア
-        ['exp', 'enr', 'sat', 'acc'].forEach(id => {
-            const deltaElem = document.getElementById(`anim-${id}-delta`);
-            if (deltaElem) {
-                deltaElem.textContent = '';
-                deltaElem.className = 'anim-delta';
-            }
-        });
+        // ステータス表示を初期化
+        this.updateAnimationStats(currentStats, {});
 
         // オーバーレイ表示
         overlay.classList.remove('hidden');
@@ -513,40 +561,146 @@ export class UIController {
         const config = this.turnManager.getCurrentTurnConfig();
         const placed = this.gameState.player.placed;
 
-        let delay = 500;
+        let delay = 300;
 
-        // おすすめ行動ボーナス表示
+        // ターン情報表示
+        setTimeout(() => {
+            header.innerHTML = `${this.gameState.turn + 1}/8ターン ${config.week}`;
+        }, delay);
+        delay += 500;
+
+        // おすすめ行動表示
         if (config.recommended) {
             setTimeout(() => {
-                header.innerHTML = `🎯 おすすめ行動: ${config.recommended}`;
+                header.innerHTML += `<br>🎯 おすすめ行動: ${config.recommended}`;
             }, delay);
-            delay += 2000;
+            delay += 800;
         }
 
-        // 各カード効果表示
-        ['leader', 'teacher', 'staff'].forEach((staff, i) => {
+        // カテゴリ色マップ
+        const categoryColors = {
+            '動員': '#3B82F6',  // blue
+            '教務': '#22C55E',  // green
+            '庶務': '#EF4444',  // red
+            '応対': '#8B5CF6'   // purple
+        };
+
+        // 各カード効果をリアルタイムで表示・適用
+        const staffOrder = ['leader', 'teacher', 'staff'];
+        const staffNames = { leader: '室長', teacher: '講師', staff: '事務' };
+
+        staffOrder.forEach((staff, i) => {
             const card = placed[staff];
             if (card) {
                 setTimeout(() => {
-                    const staffNames = { leader: '室長', teacher: '講師', staff: '事務' };
-                    cards.innerHTML = `<div class="animation-card-item">${staffNames[staff]}: ${card.cardName}<br><small>${card.effect}</small></div>`;
-                }, delay + i * 1500);
+                    // カテゴリ色付き2文字
+                    const categoryColor = categoryColors[card.category] || '#9CA3AF';
+                    const categoryBadge = `<span style="background:${categoryColor};color:white;padding:1px 4px;border-radius:4px;font-size:0.7em;margin-left:4px;">${card.category}</span>`;
+
+                    // おすすめ行動合致チェック
+                    const isRecommended = config.recommended && card.category === config.recommended;
+                    const recommendedMark = isRecommended ? ' 🎯' : '';
+
+                    // おすすめボーナス効果テキスト
+                    const bonusText = isRecommended ? `<div class="anim-bonus-text">🎯 おすすめボーナス +1 ${config.recommendedStatus}</div>` : '';
+
+                    // カード表示
+                    cards.innerHTML = `
+                        <div class="animation-card-item">
+                            <div class="anim-staff-name">${staffNames[staff]}</div>
+                            <div class="anim-card-name">${card.cardName}${categoryBadge}${recommendedMark}</div>
+                            <div class="anim-card-effect">${card.effect}</div>
+                            ${bonusText}
+                        </div>
+                    `;
+
+                    // このカードの効果を計算してステータス更新
+                    const cardEffect = this.cardManager.parseEffect(card.effect, staff, currentStats);
+                    const prevStats = { ...currentStats };
+
+                    // カード効果を適用
+                    if (cardEffect) {
+                        Object.entries(cardEffect).forEach(([key, value]) => {
+                            if (currentStats.hasOwnProperty(key)) {
+                                currentStats[key] += value;
+                            }
+                        });
+                    }
+
+                    // おすすめ行動ボーナスを適用（合致時は対応ステータス+1）
+                    if (isRecommended && config.recommendedStatus && currentStats.hasOwnProperty(config.recommendedStatus)) {
+                        currentStats[config.recommendedStatus] += 1;
+                    }
+
+                    // ステータス変動をアニメーション表示
+                    this.updateAnimationStats(currentStats, this.calculateDelta(prevStats, currentStats));
+                }, delay + i * 2000);
             }
         });
-        delay += Object.values(placed).filter(c => c).length * 1500;
+        delay += staffOrder.filter(s => placed[s]).length * 2000;
 
-        // ステータス更新アニメーション
+        // 最終結果表示
         setTimeout(() => {
             cards.innerHTML = '';
-            header.innerHTML = '📊 ステータス変動';
-            this.animateStatusUpdate(beforeStats, afterStats);
+            header.innerHTML = '📊 行動結果';
+
+            // 最終ステータスを表示（実際の値は既にgameStateで更新済み）
+            this.updateAnimationStats(afterStats, this.calculateDelta(beforeStats, afterStats));
         }, delay);
 
         // 演出終了
         setTimeout(() => {
             overlay.classList.add('hidden');
             this.finishActionPhase();
-        }, delay + 2000);
+        }, delay + 1500);
+    }
+
+    /**
+     * アニメーションステータス更新
+     */
+    updateAnimationStats(stats, delta) {
+        const statMap = {
+            experience: 'exp',
+            enrollment: 'enr',
+            satisfaction: 'sat',
+            accounting: 'acc'
+        };
+
+        Object.entries(statMap).forEach(([key, id]) => {
+            const valueElem = document.getElementById(`anim-${id}-value`);
+            const deltaElem = document.getElementById(`anim-${id}-delta`);
+
+            if (valueElem) {
+                valueElem.textContent = stats[key];
+                if (delta[key] !== undefined && delta[key] !== 0) {
+                    valueElem.classList.add('updating');
+                    setTimeout(() => valueElem.classList.remove('updating'), 300);
+                }
+            }
+
+            if (deltaElem) {
+                const d = delta[key] || 0;
+                if (d !== 0) {
+                    deltaElem.textContent = d > 0 ? `+${d}` : `${d}`;
+                    deltaElem.className = `anim-delta ${d > 0 ? 'positive' : 'negative'}`;
+                } else {
+                    deltaElem.textContent = '';
+                    deltaElem.className = 'anim-delta';
+                }
+            }
+        });
+    }
+
+    /**
+     * ステータス差分を計算
+     */
+    calculateDelta(before, after) {
+        return {
+            experience: after.experience - before.experience,
+            enrollment: after.enrollment - before.enrollment,
+            satisfaction: after.satisfaction - before.satisfaction,
+            accounting: after.accounting - before.accounting
+        };
     }
 
     /**
@@ -624,6 +778,7 @@ export class UIController {
         sortedDeck.forEach(card => {
             const cardElem = this.createCardElement(card, {
                 clickable: maxDelete > 0,
+                compact: true,
                 onClick: (c, elem) => this.onDeckCardSelect(c, elem, maxDelete)
             });
             deckContainer.appendChild(cardElem);
@@ -685,6 +840,10 @@ export class UIController {
      */
     showTrainingPhase() {
         const config = this.turnManager.getCurrentTurnConfig();
+
+        // ターン概要オーバーレイを表示
+        this.showTurnOverlay(config);
+
         const trainingCards = this.cardManager.drawTrainingCards(config.training, 3);
 
         const container = document.getElementById('training-cards');
@@ -696,6 +855,7 @@ export class UIController {
         trainingCards.forEach(card => {
             const cardElem = this.createCardElement(card, {
                 clickable: true,
+                compact: true,
                 onClick: (c, elem) => this.onTrainingCardSelect(c, elem, container)
             });
             container.appendChild(cardElem);
@@ -708,6 +868,44 @@ export class UIController {
         if (instruction) {
             instruction.textContent = '3枚から1枚を選んで習得してください';
         }
+    }
+
+    /**
+     * ターン概要オーバーレイを表示
+     */
+    showTurnOverlay(config) {
+        // 既存のオーバーレイを削除
+        const existing = document.querySelector('.turn-overlay');
+        if (existing) existing.remove();
+
+        const overlay = document.createElement('div');
+        overlay.className = 'turn-overlay';
+
+        // 表示内容: 「2/8ターン 2月上旬 {weekTopic} 🎯おすすめ:◯◯」
+        const recommendedText = config.recommended ? `🎯おすすめ: ${config.recommended}` : '';
+        const trainingText = config.training ? `習得: ${config.training}` : '';
+        const deleteText = config.delete ? `削除: ${config.delete}枚` : '';
+
+        overlay.innerHTML = `
+            <div class="turn-overlay-content">
+                <div class="turn-overlay-turn">${this.gameState.turn + 1}/8 ターン</div>
+                <div class="turn-overlay-week">${config.week}</div>
+                <div class="turn-overlay-topic">${config.topic || ''}</div>
+                <div class="turn-overlay-info">
+                    ${recommendedText ? `<span class="turn-overlay-recommended">${recommendedText}</span>` : ''}
+                    <span>${trainingText}</span>
+                    <span>${deleteText}</span>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(overlay);
+
+        // 1.5秒後に自動で非表示
+        setTimeout(() => {
+            overlay.classList.add('fade-out');
+            setTimeout(() => overlay.remove(), 300);
+        }, 1500);
     }
 
     /**
@@ -781,5 +979,138 @@ export class UIController {
     onRestart() {
         this.logger.clear();
         this.onStartGame();
+    }
+
+    /**
+     * デッキ内訳オーバーレイを表示
+     */
+    showDeckOverlay() {
+        const overlay = this.createInfoOverlay('デッキ内訳');
+        const content = overlay.querySelector('.info-overlay-content');
+
+        // 手札と山札を分離
+        const hand = this.gameState.player.hand || [];
+        const deck = this.gameState.player.deck || [];
+
+        // 手札セクション
+        if (hand.length > 0) {
+            const handSection = document.createElement('div');
+            handSection.className = 'deck-section';
+            handSection.innerHTML = `<div class="deck-section-title">手札 (${hand.length}枚)</div>`;
+            const handCards = document.createElement('div');
+            handCards.className = 'deck-cards';
+            hand.forEach(card => {
+                const cardElem = this.createCardElement(card, { compact: true });
+                handCards.appendChild(cardElem);
+            });
+            handSection.appendChild(handCards);
+            content.appendChild(handSection);
+        }
+
+        // 山札セクション
+        if (deck.length > 0) {
+            const deckSection = document.createElement('div');
+            deckSection.className = 'deck-section';
+            deckSection.innerHTML = `<div class="deck-section-title">山札 (${deck.length}枚)</div>`;
+            const deckCards = document.createElement('div');
+            deckCards.className = 'deck-cards';
+
+            // 獲得ターン順にソート
+            const sortedDeck = [...deck].sort((a, b) => {
+                const turnA = a.acquiredTurn ?? 0;
+                const turnB = b.acquiredTurn ?? 0;
+                return turnA - turnB;
+            });
+
+            sortedDeck.forEach(card => {
+                const cardElem = this.createCardElement(card, { compact: true });
+                deckCards.appendChild(cardElem);
+            });
+            deckSection.appendChild(deckCards);
+            content.appendChild(deckSection);
+        }
+
+        if (hand.length === 0 && deck.length === 0) {
+            content.innerHTML = '<p style="text-align:center;color:var(--color-text-secondary);">デッキが空です</p>';
+        }
+
+        document.body.appendChild(overlay);
+    }
+
+    /**
+     * スケジュール一覧オーバーレイを表示
+     */
+    showScheduleOverlay() {
+        const overlay = this.createInfoOverlay('スケジュール一覧');
+        const content = overlay.querySelector('.info-overlay-content');
+
+        // ターン設定を取得
+        const turnConfigs = this.turnManager.getTurnConfigs();
+
+        const table = document.createElement('table');
+        table.className = 'schedule-table';
+        table.innerHTML = `
+            <thead>
+                <tr>
+                    <th>ターン</th>
+                    <th>週</th>
+                    <th>習得</th>
+                    <th>削除</th>
+                    <th>おすすめ</th>
+                </tr>
+            </thead>
+            <tbody>
+            </tbody>
+        `;
+
+        const tbody = table.querySelector('tbody');
+        turnConfigs.forEach((config, i) => {
+            const turn = i + 1;
+            const currentTurn = this.gameState.turn + 1; // turnは0-indexedなので+1
+            const isCurrent = turn === currentTurn;
+            const isPast = turn < currentTurn;
+            const tr = document.createElement('tr');
+            if (isCurrent) {
+                tr.className = 'current';
+            } else if (isPast) {
+                tr.className = 'past';
+            }
+            tr.innerHTML = `
+                <td>${turn}/8</td>
+                <td>${config.week}</td>
+                <td>${config.training || '-'}</td>
+                <td>${config.delete || 0}枚</td>
+                <td class="recommended-cell">${config.recommended || '-'}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        content.appendChild(table);
+        document.body.appendChild(overlay);
+    }
+
+    /**
+     * 情報オーバーレイを作成
+     */
+    createInfoOverlay(title) {
+        // 既存のオーバーレイを削除
+        const existing = document.querySelector('.info-overlay');
+        if (existing) existing.remove();
+
+        const overlay = document.createElement('div');
+        overlay.className = 'info-overlay';
+        overlay.innerHTML = `
+            <div class="info-overlay-header">
+                <span class="info-overlay-title">${title}</span>
+                <button class="info-overlay-close">×</button>
+            </div>
+            <div class="info-overlay-content"></div>
+        `;
+
+        overlay.querySelector('.info-overlay-close').addEventListener('click', () => {
+            overlay.remove();
+        });
+
+        return overlay;
     }
 }

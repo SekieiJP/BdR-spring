@@ -1,13 +1,15 @@
 /**
  * Main - エントリーポイント
- * v20260205-2355: 効果テキストパーサー完全実装
+ * v20260206-1930: TASK-3/4/5/6実装
  */
-import { Logger } from './logger.js?v=20260205-2355';
-import { GameState } from './gameState.js?v=20260205-2355';
-import { CardManager } from './cardManager.js?v=20260205-2355';
-import { TurnManager } from './turnManager.js?v=20260205-2355';
-import { ScoreManager } from './scoreManager.js?v=20260205-2355';
-import { UIController } from './uiController.js?v=20260205-2355';
+import { Logger } from './logger.js?v=20260206-1930';
+import { GameState } from './gameState.js?v=20260206-1930';
+import { CardManager } from './cardManager.js?v=20260206-1930';
+import { TurnManager } from './turnManager.js?v=20260206-1930';
+import { ScoreManager } from './scoreManager.js?v=20260206-1930';
+import { UIController } from './uiController.js?v=20260206-1930';
+
+const CACHE_BUSTER = 'v20260206-1930';
 
 class Game {
     constructor() {
@@ -32,7 +34,7 @@ class Game {
         this.logger.init();
 
         // カードデータロード
-        const success = await this.cardManager.loadCards('data/cards.csv');
+        const success = await this.cardManager.loadCards('data/cardsV2.csv');
         if (!success) {
             this.logger.log('カードデータの読み込みに失敗しました', 'error');
             alert('ゲームの初期化に失敗しました。ページを再読み込みしてください。');

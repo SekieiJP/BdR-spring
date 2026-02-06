@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="description" content="ボードでRinkai 春期講習編 - 学習塾経営シミュレーションゲーム">
     <title>ボードでRinkai 春期講習編</title>
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/style.css?v=20260206-2110">
 </head>
 
 <body>
@@ -20,6 +20,10 @@
                 <span class="compact-divider">|</span>
                 <span id="compact-recommended">-</span>
             </div>
+            <div class="compact-buttons">
+                <button id="btn-deck-compact" class="info-btn" title="デッキ内訳">📋</button>
+                <button id="btn-schedule-compact" class="info-btn" title="スケジュール">📅</button>
+            </div>
             <div class="compact-stats">
                 <span class="compact-stat stat-exp"><span id="compact-experience">0</span></span>
                 <span class="compact-stat stat-enr"><span id="compact-enrollment">0</span></span>
@@ -31,6 +35,10 @@
         <!-- ヘッダー（フル版） -->
         <header class="game-header" id="full-header">
             <h1>ボードでRinkai</h1>
+            <div class="header-buttons">
+                <button id="btn-deck-full" class="info-btn" title="デッキ内訳">📋</button>
+                <button id="btn-schedule-full" class="info-btn" title="スケジュール">📅</button>
+            </div>
             <div class="turn-info">
                 <span id="turn-name">準備中</span>
                 <span id="phase-name">-</span>
@@ -200,8 +208,8 @@
         </div>
     </div>
 
-    <!-- JavaScriptモジュール（キャッシュバスター付き v20260205-2355） -->
-    <script type="module" src="js/main.js?v=20260205-2355"></script>
+    <!-- JavaScriptモジュール（キャッシュバスター付き v20260206-1815） -->
+    <script type="module" src="js/main.js?v=20260206-1815"></script>
 </body>
 
 </html>

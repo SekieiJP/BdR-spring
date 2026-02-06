@@ -24,7 +24,7 @@ export class ScoreManager {
      */
     calculateScore(gameState) {
         const withdrawal = this.calculateWithdrawal(gameState);
-        const mobilization = gameState.player.experience + gameState.player.enrollment;
+        const mobilization = gameState.player.experience; // 動員目標は体験数のみ
         const enrollmentDiff = gameState.player.enrollment - withdrawal;
 
         let points = 0;

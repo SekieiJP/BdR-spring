@@ -32,7 +32,7 @@ export class CardManager {
     }
 
     /**
-     * CSVテキストをパース
+     * CSVテキストをパース（quoted fields対応）
      */
     parseCSV(csvText) {
         const lines = csvText.trim().split('\n');
@@ -42,15 +42,17 @@ export class CardManager {
             const line = lines[i].trim();
             if (!line) continue;
 
-            // カンマで分割（簡易版、quoted fieldsは未対応）
-            const parts = line.split(',');
+            // quoted fields対応のCSVパース
+            const parts = this.parseCSVLine(line);
 
-            if (parts.length >= 4) {
+            if (parts.length >= 5) {
+                // cardsV2.csv形式: category, rarity, cardName, topEffect, effect
                 const card = {
                     category: parts[0].trim(),
                     rarity: parts[1].trim(),
                     cardName: parts[2].trim(),
-                    effect: parts[3].trim()
+                    topEffect: parts[3].trim(),
+                    effect: parts[4].trim()
                 };
 
                 this.allCards.push(card);
@@ -59,8 +61,54 @@ export class CardManager {
                 if (this.trainingDecks[card.rarity]) {
                     this.trainingDecks[card.rarity].push(card);
                 }
+            } else if (parts.length >= 4) {
+                // 旧形式（互換性維持）: category, rarity, cardName, effect
+                const card = {
+                    category: parts[0].trim(),
+                    rarity: parts[1].trim(),
+                    cardName: parts[2].trim(),
+                    topEffect: '',
+                    effect: parts[3].trim()
+                };
+
+                this.allCards.push(card);
+
+                if (this.trainingDecks[card.rarity]) {
+                    this.trainingDecks[card.rarity].push(card);
+                }
             }
         }
+    }
+
+    /**
+     * CSV行をパース（quoted fields対応）
+     */
+    parseCSVLine(line) {
+        const result = [];
+        let current = '';
+        let inQuotes = false;
+
+        for (let i = 0; i < line.length; i++) {
+            const char = line[i];
+
+            if (char === '"') {
+                if (inQuotes && line[i + 1] === '"') {
+                    // エスケープされたダブルクォート
+                    current += '"';
+                    i++;
+                } else {
+                    inQuotes = !inQuotes;
+                }
+            } else if (char === ',' && !inQuotes) {
+                result.push(current);
+                current = '';
+            } else {
+                current += char;
+            }
+        }
+        result.push(current);
+
+        return result;
     }
 
     /**
