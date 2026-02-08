@@ -424,45 +424,103 @@ export class UIController {
      * カードをスロットに配置を試みる（職種チェック付き）
      */
     tryPlaceCardToSlot(card, staff) {
+        const staffNames = { leader: '室長', teacher: '講師', staff: '事務' };
+        const currentStaffName = staffNames[staff];
+
         // 職種条件【】のチェック
-        const staffRestriction = this.parseStaffRestriction(card.effect);
-        if (staffRestriction) {
-            const staffNames = { leader: '室長', teacher: '講師', staff: '事務' };
-            if (staffRestriction !== staffNames[staff]) {
-                this.showFloatNotification('このカードは職種が違うので配置できません', 'error');
-                return;
-            }
+        const allowedStaff = this.parseStaffRestriction(card.effect);
+        if (allowedStaff && !allowedStaff.includes(currentStaffName)) {
+            this.showFloatNotification(`このカードは ${allowedStaff.join('・')} 専用です`, 'error');
+            return;
         }
 
-        // 条件付き効果〈〉のチェック
-        const hasConditional = this.parseConditionalEffect(card.effect);
-        if (hasConditional) {
-            this.showFloatNotification('一部の効果が発動しない可能性があります', 'warning');
+        // 条件付き効果〈〉のチェック（満たしていない場合のみ警告）
+        const unmetConditions = this.checkUnmetConditions(card.effect, staff);
+        if (unmetConditions.length > 0) {
+            this.showFloatNotification(`一部の効果が発動しない可能性があります`, 'warning');
         }
 
         this.placeCardToSlot(card, staff);
     }
 
     /**
-     * 【職種】条件を解析
+     * 【職種】条件を解析（複数職種対応）
+     * @returns {string[]|null} 許可されている職種の配列、または制限なしの場合はnull
      */
     parseStaffRestriction(effect) {
         const match = effect.match(/【(.+?)】/);
         if (match) {
-            // 「室長」「講師」「事務」のいずれかを返す
-            const staffName = match[1];
-            if (['室長', '講師', '事務'].includes(staffName)) {
-                return staffName;
+            const staffText = match[1];
+            const allowedStaff = [];
+
+            // 「・」区切りで複数職種を解析
+            const parts = staffText.split('・');
+            for (const part of parts) {
+                const name = part.trim();
+                if (['室長', '講師', '事務'].includes(name)) {
+                    allowedStaff.push(name);
+                }
+            }
+
+            if (allowedStaff.length > 0) {
+                return allowedStaff;
             }
         }
         return null;
     }
 
     /**
-     * 〈条件〉を解析（条件付き効果があるか）
+     * 〈条件〉を解析し、現時点で満たしていない条件を返す
+     * @param {string} effect - カード効果テキスト
+     * @param {string} staff - 配置先スタッフ（leader/teacher/staff）
+     * @returns {string[]} 満たしていない条件のリスト
      */
-    parseConditionalEffect(effect) {
-        return /〈.+?〉/.test(effect);
+    checkUnmetConditions(effect, staff) {
+        const unmetConditions = [];
+        const staffNames = { leader: '室長', teacher: '講師', staff: '事務' };
+        const currentStaffName = staffNames[staff];
+
+        // 〈〉内の条件を抽出
+        const conditionalRegex = /〈([^〉]+)〉/g;
+        let match;
+
+        while ((match = conditionalRegex.exec(effect)) !== null) {
+            const condition = match[1].trim();
+
+            // 職種条件をチェック
+            if (['室長', '講師', '事務'].includes(condition)) {
+                if (condition !== currentStaffName) {
+                    unmetConditions.push(condition);
+                }
+                continue;
+            }
+
+            // ステータス条件をチェック（例：「満足10以下」「入塾3以上」）
+            const statusMatch = condition.match(/(体験|入塾|満足|経理)(\d+)(以上|以下)/);
+            if (statusMatch) {
+                const statusName = statusMatch[1];
+                const threshold = parseInt(statusMatch[2]);
+                const comparison = statusMatch[3];
+
+                const statusMap = {
+                    '体験': 'experience',
+                    '入塾': 'enrollment',
+                    '満足': 'satisfaction',
+                    '経理': 'accounting'
+                };
+
+                const currentValue = this.gameState.player[statusMap[statusName]];
+
+                if (comparison === '以上' && currentValue < threshold) {
+                    unmetConditions.push(condition);
+                } else if (comparison === '以下' && currentValue > threshold) {
+                    unmetConditions.push(condition);
+                }
+                continue;
+            }
+        }
+
+        return unmetConditions;
     }
 
     /**
@@ -506,7 +564,7 @@ export class UIController {
         }
 
         this.renderHand();
-        this.checkActionReady();
+        this.updateActionButtonState();
     }
 
     /**
@@ -523,7 +581,7 @@ export class UIController {
         }
 
         this.renderHand();
-        this.checkActionReady();
+        this.updateActionButtonState();
     }
 
     /**

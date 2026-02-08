@@ -139,7 +139,7 @@ export class CardManager {
     }
 
     /**
-     * 研修カードを引く
+     * 研修カードを引く（デバッグモード対応）
      */
     drawTrainingCards(rarity, count) {
         if (!this.trainingDecks[rarity]) {
@@ -150,7 +150,30 @@ export class CardManager {
         const deck = this.trainingDecks[rarity];
         const drawn = [];
 
-        for (let i = 0; i < count; i++) {
+        // デバッグモード: 指定カードを優先的に引く
+        if (window?.debugCards?.training?.length > 0) {
+            for (const cardName of window.debugCards.training) {
+                if (drawn.length >= count) break;
+
+                // デッキからカード名で検索
+                const idx = deck.findIndex(c => c.cardName === cardName);
+                if (idx !== -1) {
+                    const card = deck.splice(idx, 1)[0];
+                    drawn.push({ ...card });
+                    this.logger?.log(`[DEBUG] 研修カード優先引き: ${cardName}`, 'info');
+                } else {
+                    // 全カードから検索してコピー
+                    const searchCard = this.allCards.find(c => c.cardName === cardName);
+                    if (searchCard) {
+                        drawn.push({ ...searchCard });
+                        this.logger?.log(`[DEBUG] 研修カード挿入: ${cardName} (デッキ外)`, 'info');
+                    }
+                }
+            }
+        }
+
+        // 残りの枚数を通常通り引く
+        for (let i = drawn.length; i < count; i++) {
             if (deck.length === 0) {
                 // デッキが空の場合は何も引けない
                 this.logger?.log(`研修会場の${rarity}デッキが空です`, 'info');

@@ -108,12 +108,40 @@ export class GameState {
     }
 
     /**
-     * 手札を引く
+     * 手札を引く（デバッグモード対応）
      * @param {number} count - 引く枚数
      */
     drawCards(count) {
         const drawn = [];
-        for (let i = 0; i < count; i++) {
+
+        // デバッグモード: 指定カードを優先的に引く
+        if (window?.debugCards?.hand?.length > 0 && window.game?.cardManager) {
+            const cardManager = window.game.cardManager;
+            for (const cardName of window.debugCards.hand) {
+                if (drawn.length >= count) break;
+
+                // デッキからカード名で検索
+                const idx = this.player.deck.findIndex(c => c.cardName === cardName);
+                if (idx !== -1) {
+                    const card = this.player.deck.splice(idx, 1)[0];
+                    this.player.hand.push(card);
+                    drawn.push(card);
+                    this.logger?.log(`[DEBUG] 手札優先引き: ${cardName}`, 'info');
+                } else {
+                    // 全カードから検索してコピー
+                    const searchCard = cardManager.allCards.find(c => c.cardName === cardName);
+                    if (searchCard) {
+                        const card = { ...searchCard };
+                        this.player.hand.push(card);
+                        drawn.push(card);
+                        this.logger?.log(`[DEBUG] 手札挿入: ${cardName} (デッキ外)`, 'info');
+                    }
+                }
+            }
+        }
+
+        // 残りの枚数を通常通り引く
+        for (let i = drawn.length; i < count; i++) {
             if (this.player.deck.length === 0) {
                 this.logger?.log('デッキが空です', 'info');
                 break;

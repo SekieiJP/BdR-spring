@@ -81,5 +81,43 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.game = game;
     console.log('[DEBUG] ゲームインスタンスがwindow.gameに公開されました');
 
+    // デバッグモード: URLパラメータまたはコンソールから設定可能
+    window.debugCards = {
+        training: [], // 研修会場に出したいカード名のリスト
+        hand: []      // 手札に出したいカード名のリスト
+    };
+
+    // デバッグ関数: 研修候補に特定のカードを出す
+    window.setDebugTrainingCards = function (cardNames) {
+        window.debugCards.training = Array.isArray(cardNames) ? cardNames : [cardNames];
+        console.log('[DEBUG] 研修候補設定:', window.debugCards.training);
+    };
+
+    // デバッグ関数: 手札に特定のカードを出す
+    window.setDebugHandCards = function (cardNames) {
+        window.debugCards.hand = Array.isArray(cardNames) ? cardNames : [cardNames];
+        console.log('[DEBUG] 手札候補設定:', window.debugCards.hand);
+    };
+
+    // デバッグ関数: カード名で検索
+    window.findCard = function (searchTerm) {
+        const matches = game.cardManager.allCards.filter(c =>
+            c.cardName.includes(searchTerm) || c.effect.includes(searchTerm)
+        );
+        console.table(matches.map(c => ({ name: c.cardName, category: c.category, rarity: c.rarity, effect: c.effect })));
+        return matches;
+    };
+
+    // URLからデバッグ設定を読み込み
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('debug_training')) {
+        window.debugCards.training = params.get('debug_training').split(',');
+        console.log('[DEBUG] URL: 研修候補設定:', window.debugCards.training);
+    }
+    if (params.has('debug_hand')) {
+        window.debugCards.hand = params.get('debug_hand').split(',');
+        console.log('[DEBUG] URL: 手札候補設定:', window.debugCards.hand);
+    }
+
     await game.initialize();
 });
