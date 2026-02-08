@@ -58,6 +58,23 @@ export class ScoreManager {
         this.logger?.log(`入退差: ${enrollmentDiff}`, 'status');
         this.logger?.log(`目標ポイント: ${points}`, 'status');
 
+        // 各目標のポイント内訳
+        let withdrawalPoints = 0;
+        if (withdrawal >= 4) withdrawalPoints = -3;
+        else if (withdrawal <= 1) withdrawalPoints = 1;
+
+        let mobilizationPoints = 0;
+        if (mobilization >= 12) mobilizationPoints = 2;
+        else if (mobilization >= 10) mobilizationPoints = 1;
+
+        let enrollmentDiffPoints = 0;
+        if (enrollmentDiff >= 12) enrollmentDiffPoints = 5;
+        else if (enrollmentDiff >= 10) enrollmentDiffPoints = 4;
+        else if (enrollmentDiff >= 8) enrollmentDiffPoints = 3;
+
+        // ランク計算
+        const rank = this.calculateRank(points, withdrawal, mobilization, gameState.player.enrollment);
+
         return {
             points,
             withdrawal,
@@ -66,8 +83,31 @@ export class ScoreManager {
             experience: gameState.player.experience,
             enrollment: gameState.player.enrollment,
             satisfaction: gameState.player.satisfaction,
-            accounting: gameState.player.accounting
+            accounting: gameState.player.accounting,
+            rank,
+            breakdown: {
+                withdrawalPoints,
+                mobilizationPoints,
+                enrollmentDiffPoints
+            }
         };
+    }
+
+    /**
+     * ランク計算
+     */
+    calculateRank(points, withdrawal, mobilization, enrollment) {
+        // S+条件: 退塾0 かつ 動員15以上 かつ 入塾15以上
+        if (withdrawal === 0 && mobilization >= 15 && enrollment >= 15) {
+            return { grade: 'S+', name: '全社最優秀教室!!!' };
+        }
+
+        if (points >= 8) return { grade: 'S', name: '最優秀教室！' };
+        if (points >= 7) return { grade: 'A', name: '優秀教室ノミネート' };
+        if (points >= 5) return { grade: 'B', name: '好調教室の仲間入り' };
+        if (points >= 4) return { grade: 'C', name: 'ギリギリ達成' };
+        if (points >= 1) return { grade: 'D', name: '達成あと一歩' };
+        return { grade: 'E', name: '達成ならず' };
     }
 
     /**

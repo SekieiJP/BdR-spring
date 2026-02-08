@@ -252,6 +252,8 @@ body {
     border: 2px solid transparent;
     position: relative;
     font-size: 0.75rem;
+    user-select: none;
+    -webkit-user-select: none;
 }
 
 .card:hover {
@@ -650,6 +652,93 @@ body {
     margin-bottom: var(--spacing-lg);
     font-size: 1.125rem;
     color: var(--color-warning);
+}
+
+/* ランク表示 */
+.result-rank {
+    text-align: center;
+    margin-bottom: var(--spacing-lg);
+}
+
+.rank-grade {
+    font-size: 3rem;
+    font-weight: bold;
+    line-height: 1;
+    margin-bottom: var(--spacing-xs);
+}
+
+.rank-E {
+    color: #6B7280;
+}
+
+.rank-D {
+    color: #EF4444;
+}
+
+.rank-C {
+    color: #F59E0B;
+}
+
+.rank-B {
+    color: #10B981;
+}
+
+.rank-A {
+    color: #3B82F6;
+}
+
+.rank-S {
+    color: #8B5CF6;
+}
+
+.rank-Splus {
+    color: #EC4899;
+    text-shadow: 0 0 10px #EC4899;
+}
+
+.rank-name {
+    font-size: 1.25rem;
+    color: var(--color-text);
+}
+
+/* 得点内訳テーブル */
+.result-breakdown {
+    margin-bottom: var(--spacing-lg);
+}
+
+.breakdown-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+}
+
+.breakdown-table th,
+.breakdown-table td {
+    padding: var(--spacing-sm);
+    text-align: center;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.breakdown-table th {
+    background: var(--color-bg-light);
+    font-weight: 600;
+}
+
+.breakdown-table .total-row {
+    background: var(--color-bg-light);
+    font-weight: bold;
+}
+
+.point-active {
+    background: var(--color-primary);
+    color: white;
+    padding: 2px 6px;
+    border-radius: var(--border-radius-sm);
+    font-weight: bold;
+}
+
+.point-inactive {
+    color: var(--color-text-secondary);
 }
 
 .result-actions {
@@ -1056,4 +1145,50 @@ body {
 
 .schedule-table .recommended-cell {
     color: var(--color-accent);
+}
+
+/* ==================== フロート通知 ==================== */
+.float-notification {
+    position: fixed;
+    top: var(--spacing-md);
+    left: 50%;
+    transform: translateX(-50%);
+    padding: var(--spacing-sm) var(--spacing-lg);
+    border-radius: var(--border-radius);
+    font-size: 0.875rem;
+    font-weight: 500;
+    z-index: 3000;
+    animation: slideDown 0.3s ease;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.float-notification.fade-out {
+    animation: fadeOut 0.3s ease forwards;
+}
+
+.float-info {
+    background: var(--color-primary);
+    color: white;
+}
+
+.float-warning {
+    background: var(--color-warning);
+    color: var(--color-bg);
+}
+
+.float-error {
+    background: var(--color-danger);
+    color: white;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(-20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
 }

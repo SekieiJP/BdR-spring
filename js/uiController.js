@@ -117,14 +117,17 @@ export class UIController {
         const compactTurn = document.getElementById('compact-turn');
         const compactPhase = document.getElementById('compact-phase');
         const compactRecommended = document.getElementById('compact-recommended');
+        const recommendedCategory = document.getElementById('recommended-category');
 
         let turnText = '準備中';
         let recommendedText = '-';
+        let recommended = null;
 
         if (this.gameState.turn < 8) {
             const config = this.turnManager.getCurrentTurnConfig();
             turnText = config.name;
             recommendedText = config.recommended || '-';
+            recommended = config.recommended;
         }
 
         if (turnName) turnName.textContent = turnText;
@@ -142,6 +145,22 @@ export class UIController {
         if (phaseName) phaseName.textContent = phaseText;
         if (compactPhase) compactPhase.textContent = phaseText;
         if (compactRecommended) compactRecommended.textContent = recommendedText;
+
+        // フルヘッダーにおすすめカテゴリを表示
+        if (recommendedCategory) {
+            if (recommended) {
+                const categoryColors = {
+                    '動員': '#3B82F6',
+                    '教務': '#10B981',
+                    '庶務': '#EC4899',
+                    '応対': '#F97316'
+                };
+                const color = categoryColors[recommended] || '#9CA3AF';
+                recommendedCategory.innerHTML = `<span style="background:${color};color:white;padding:2px 6px;border-radius:4px;font-size:0.75rem;">🎯${recommended}</span>`;
+            } else {
+                recommendedCategory.innerHTML = '';
+            }
+        }
     }
 
     /**
@@ -162,6 +181,7 @@ export class UIController {
      * @param {Object} card - カードデータ
      * @param {Object} options - オプション
      * @param {boolean} options.compact - コンパクトモード（3列表示時、topEffect表示）
+     * @param {string} options.recommendedCategory - おすすめ行動カテゴリ（合致時🎯表示）
      */
     createCardElement(card, options = {}) {
         const cardDiv = document.createElement('div');
@@ -179,6 +199,10 @@ export class UIController {
         // カテゴリ色クラス
         const categoryClass = `category-${card.category}`;
 
+        // おすすめ行動合致チェック
+        const isRecommended = options.recommendedCategory && card.category === options.recommendedCategory;
+        const recommendedMark = isRecommended ? '🎯' : '';
+
         // 表示する効果テキスト（compactモードではtopEffect、通常はeffect）
         const displayEffect = options.compact && card.topEffect ? card.topEffect : card.effect;
 
@@ -187,7 +211,7 @@ export class UIController {
                 <span class="card-name">${card.cardName}</span>
             </div>
             <div class="card-meta">
-                <span class="card-category-text ${categoryClass}">${card.category}</span>
+                <span class="card-category-text ${categoryClass}">${card.category}</span>${recommendedMark}
                 <span class="card-rarity rarity-${card.rarity}">${card.rarity}</span>
             </div>
             <div class="card-effect">${displayEffect}</div>
@@ -365,11 +389,16 @@ export class UIController {
 
         handContainer.innerHTML = '';
 
+        // 教室行動フェーズではおすすめカテゴリを取得
+        const config = this.turnManager.getCurrentTurnConfig();
+        const recommendedCategory = this.gameState.phase === 'action' ? config?.recommended : null;
+
         this.gameState.player.hand.forEach(card => {
             const cardElem = this.createCardElement(card, {
                 draggable: true,
                 clickable: true,
                 compact: false,
+                recommendedCategory: recommendedCategory,
                 onClick: (c) => this.onHandCardTap(c)
             });
             handContainer.appendChild(cardElem);
@@ -385,10 +414,75 @@ export class UIController {
         // 空いている最初のスロットに配置
         for (const staff of staffOrder) {
             if (!this.gameState.player.placed[staff]) {
-                this.placeCardToSlot(card, staff);
+                this.tryPlaceCardToSlot(card, staff);
                 break;
             }
         }
+    }
+
+    /**
+     * カードをスロットに配置を試みる（職種チェック付き）
+     */
+    tryPlaceCardToSlot(card, staff) {
+        // 職種条件【】のチェック
+        const staffRestriction = this.parseStaffRestriction(card.effect);
+        if (staffRestriction) {
+            const staffNames = { leader: '室長', teacher: '講師', staff: '事務' };
+            if (staffRestriction !== staffNames[staff]) {
+                this.showFloatNotification('このカードは職種が違うので配置できません', 'error');
+                return;
+            }
+        }
+
+        // 条件付き効果〈〉のチェック
+        const hasConditional = this.parseConditionalEffect(card.effect);
+        if (hasConditional) {
+            this.showFloatNotification('一部の効果が発動しない可能性があります', 'warning');
+        }
+
+        this.placeCardToSlot(card, staff);
+    }
+
+    /**
+     * 【職種】条件を解析
+     */
+    parseStaffRestriction(effect) {
+        const match = effect.match(/【(.+?)】/);
+        if (match) {
+            // 「室長」「講師」「事務」のいずれかを返す
+            const staffName = match[1];
+            if (['室長', '講師', '事務'].includes(staffName)) {
+                return staffName;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 〈条件〉を解析（条件付き効果があるか）
+     */
+    parseConditionalEffect(effect) {
+        return /〈.+?〉/.test(effect);
+    }
+
+    /**
+     * フロート通知を表示
+     */
+    showFloatNotification(message, type = 'info') {
+        // 既存の通知を削除
+        const existing = document.querySelector('.float-notification');
+        if (existing) existing.remove();
+
+        const notification = document.createElement('div');
+        notification.className = `float-notification float-${type}`;
+        notification.textContent = message;
+        document.body.appendChild(notification);
+
+        // 3秒後に消える
+        setTimeout(() => {
+            notification.classList.add('fade-out');
+            setTimeout(() => notification.remove(), 300);
+        }, 3000);
     }
 
     /**
@@ -577,32 +671,42 @@ export class UIController {
             delay += 800;
         }
 
-        // カテゴリ色マップ
+        // カテゴリ色マップ（CSS変数と統一）
         const categoryColors = {
-            '動員': '#3B82F6',  // blue
-            '教務': '#22C55E',  // green
-            '庶務': '#EF4444',  // red
-            '応対': '#8B5CF6'   // purple
+            '動員': '#3B82F6',  // --color-mobilization
+            '教務': '#10B981',  // --color-teaching
+            '庶務': '#EC4899',  // --color-affairs
+            '応対': '#F97316'   // --color-response
         };
 
-        // 各カード効果をリアルタイムで表示・適用
+        // ステータス日本語名マップ
+        const statusNames = {
+            'experience': '体験',
+            'enrollment': '入塾',
+            'satisfaction': '満足',
+            'accounting': '経理'
+        };
+
+        // 各カード効果をリアルタイムで表示
         const staffOrder = ['leader', 'teacher', 'staff'];
         const staffNames = { leader: '室長', teacher: '講師', staff: '事務' };
 
         staffOrder.forEach((staff, i) => {
             const card = placed[staff];
-            if (card) {
+            const cardEffectInfo = actionInfo?.cardEffects?.[staff];
+            if (card && cardEffectInfo) {
                 setTimeout(() => {
                     // カテゴリ色付き2文字
                     const categoryColor = categoryColors[card.category] || '#9CA3AF';
                     const categoryBadge = `<span style="background:${categoryColor};color:white;padding:1px 4px;border-radius:4px;font-size:0.7em;margin-left:4px;">${card.category}</span>`;
 
                     // おすすめ行動合致チェック
-                    const isRecommended = config.recommended && card.category === config.recommended;
+                    const isRecommended = cardEffectInfo.isRecommended;
                     const recommendedMark = isRecommended ? ' 🎯' : '';
 
-                    // おすすめボーナス効果テキスト
-                    const bonusText = isRecommended ? `<div class="anim-bonus-text">🎯 おすすめボーナス +1 ${config.recommendedStatus}</div>` : '';
+                    // おすすめボーナス効果テキスト（日本語表記）
+                    const statusName = statusNames[config.recommendedStatus] || config.recommendedStatus;
+                    const bonusText = isRecommended ? `<div class="anim-bonus-text">🎯 おすすめボーナス ${statusName}+1</div>` : '';
 
                     // カード表示
                     cards.innerHTML = `
@@ -614,45 +718,29 @@ export class UIController {
                         </div>
                     `;
 
-                    // このカードの効果を計算してステータス更新
-                    const cardEffect = this.cardManager.parseEffect(card.effect, staff, currentStats);
+                    // actionInfoから実際の効果変動を取得してステータス更新
                     const prevStats = { ...currentStats };
 
-                    // カード効果を適用
-                    if (cardEffect) {
-                        Object.entries(cardEffect).forEach(([key, value]) => {
-                            if (currentStats.hasOwnProperty(key)) {
-                                currentStats[key] += value;
-                            }
-                        });
-                    }
-
-                    // おすすめ行動ボーナスを適用（合致時は対応ステータス+1）
-                    if (isRecommended && config.recommendedStatus && currentStats.hasOwnProperty(config.recommendedStatus)) {
-                        currentStats[config.recommendedStatus] += 1;
-                    }
+                    // cardEffectsからの差分を適用
+                    const delta = this.calculateDelta(cardEffectInfo.beforeStats, cardEffectInfo.afterStats);
+                    Object.entries(delta).forEach(([key, value]) => {
+                        if (currentStats.hasOwnProperty(key)) {
+                            currentStats[key] += value;
+                        }
+                    });
 
                     // ステータス変動をアニメーション表示
-                    this.updateAnimationStats(currentStats, this.calculateDelta(prevStats, currentStats));
+                    this.updateAnimationStats(currentStats, delta);
                 }, delay + i * 2000);
             }
         });
-        delay += staffOrder.filter(s => placed[s]).length * 2000;
+        delay += staffOrder.filter(s => placed[s] && actionInfo?.cardEffects?.[s]).length * 2000;
 
-        // 最終結果表示
-        setTimeout(() => {
-            cards.innerHTML = '';
-            header.innerHTML = '📊 行動結果';
-
-            // 最終ステータスを表示（実際の値は既にgameStateで更新済み）
-            this.updateAnimationStats(afterStats, this.calculateDelta(beforeStats, afterStats));
-        }, delay);
-
-        // 演出終了
+        // 演出終了（📊行動結果ステップを除去）
         setTimeout(() => {
             overlay.classList.add('hidden');
             this.finishActionPhase();
-        }, delay + 1500);
+        }, delay + 500);
     }
 
     /**
@@ -932,11 +1020,51 @@ export class UIController {
 
         this.showPhaseArea('result');
 
-        // スコア表示
-        document.getElementById('result-points').textContent = score.points;
-        document.getElementById('result-withdrawal').textContent = score.withdrawal;
-        document.getElementById('result-mobilization').textContent = score.mobilization;
-        document.getElementById('result-diff').textContent = score.enrollmentDiff;
+        // ランク表示
+        const rankElem = document.getElementById('result-rank');
+        if (rankElem) {
+            rankElem.innerHTML = `
+                <div class="rank-grade rank-${score.rank.grade.replace('+', 'plus')}">${score.rank.grade}</div>
+                <div class="rank-name">${score.rank.name}</div>
+            `;
+        }
+
+        // 得点内訳表示
+        const breakdownElem = document.getElementById('result-breakdown');
+        if (breakdownElem) {
+            breakdownElem.innerHTML = `
+                <table class="breakdown-table">
+                    <thead>
+                        <tr>
+                            <th>達成項目</th>
+                            <th>結果</th>
+                            <th>ポイント</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>退塾目標</td>
+                            <td>退塾 ${score.withdrawal}</td>
+                            <td>${this.renderPointRange('withdrawal', score.withdrawal, score.breakdown.withdrawalPoints)}</td>
+                        </tr>
+                        <tr>
+                            <td>動員目標</td>
+                            <td>体験 ${score.mobilization}</td>
+                            <td>${this.renderPointRange('mobilization', score.mobilization, score.breakdown.mobilizationPoints)}</td>
+                        </tr>
+                        <tr>
+                            <td>入退目標</td>
+                            <td>入退差 ${score.enrollmentDiff}</td>
+                            <td>${this.renderPointRange('enrollmentDiff', score.enrollmentDiff, score.breakdown.enrollmentDiffPoints)}</td>
+                        </tr>
+                        <tr class="total-row">
+                            <td colspan="2">合計スコア</td>
+                            <td><strong>${score.points}</strong></td>
+                        </tr>
+                    </tbody>
+                </table>
+            `;
+        }
 
         // ハイスコア保存・表示
         this.scoreManager.saveHighScore(score);
@@ -945,6 +1073,39 @@ export class UIController {
         if (highScoreElem && highScore) {
             highScoreElem.textContent = `${highScore.points}ポイント`;
         }
+    }
+
+    /**
+     * ポイントレンジを表示（該当ポイントを強調）
+     */
+    renderPointRange(type, value, earnedPoints) {
+        const ranges = {
+            withdrawal: [
+                { min: 4, max: Infinity, points: -3 },
+                { min: 2, max: 3, points: 0 },
+                { min: 0, max: 1, points: 1 }
+            ],
+            mobilization: [
+                { min: 0, max: 9, points: 0 },
+                { min: 10, max: 11, points: 1 },
+                { min: 12, max: Infinity, points: 2 }
+            ],
+            enrollmentDiff: [
+                { min: -Infinity, max: 7, points: 0 },
+                { min: 8, max: 9, points: 3 },
+                { min: 10, max: 11, points: 4 },
+                { min: 12, max: Infinity, points: 5 }
+            ]
+        };
+
+        return ranges[type].map(r => {
+            const isActive = earnedPoints === r.points;
+            const pointStr = r.points >= 0 ? `+${r.points}` : `${r.points}`;
+            if (isActive) {
+                return `<span class="point-active">${pointStr}</span>`;
+            }
+            return `<span class="point-inactive">${pointStr}</span>`;
+        }).join(' | ');
     }
 
     /**

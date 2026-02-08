@@ -42,6 +42,7 @@
             <div class="turn-info">
                 <span id="turn-name">準備中</span>
                 <span id="phase-name">-</span>
+                <span id="recommended-category" class="recommended-badge"></span>
             </div>
         </header>
 
@@ -129,24 +130,8 @@
             <!-- ゲーム終了画面 -->
             <section id="result-area" class="phase-area hidden">
                 <h2>ゲーム終了</h2>
-                <div class="result-summary">
-                    <div class="result-item">
-                        <span class="result-label">目標ポイント:</span>
-                        <span class="result-value" id="result-points">0</span>
-                    </div>
-                    <div class="result-item">
-                        <span class="result-label">退塾数:</span>
-                        <span class="result-value" id="result-withdrawal">0</span>
-                    </div>
-                    <div class="result-item">
-                        <span class="result-label">動員合計:</span>
-                        <span class="result-value" id="result-mobilization">0</span>
-                    </div>
-                    <div class="result-item">
-                        <span class="result-label">入退差:</span>
-                        <span class="result-value" id="result-diff">0</span>
-                    </div>
-                </div>
+                <div id="result-rank" class="result-rank"></div>
+                <div id="result-breakdown" class="result-breakdown"></div>
                 <div class="high-score">
                     <p>ハイスコア: <span id="high-score">-</span></p>
                 </div>

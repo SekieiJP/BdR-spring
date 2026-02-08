@@ -4,12 +4,12 @@
 export class TurnManager {
     static TURN_CONFIG = [
         { name: '1月下旬', week: '1月下旬', training: 'R', recommended: '動員', recommendedStatus: 'experience', delete: 2 },
-        { name: '2月上旬', week: '2月上旬', training: 'SR', recommended: '応対', recommendedStatus: 'satisfaction', delete: 1 },
+        { name: '2月上旬', week: '2月上旬', training: 'SR', recommended: '応対', recommendedStatus: 'satisfaction', delete: 2 },
         { name: '2月下旬', week: '2月下旬', training: 'R', recommended: '動員', recommendedStatus: 'experience', delete: 1 },
-        { name: '3月上旬', week: '3月上旬', training: 'SSR', recommended: '庶務', recommendedStatus: 'accounting', delete: 2 },
+        { name: '3月上旬', week: '3月上旬', training: 'SSR', recommended: '庶務', recommendedStatus: 'accounting', delete: 1 },
         { name: '3月下旬', week: '3月下旬', training: 'SSR', recommended: '教務', recommendedStatus: 'enrollment', delete: 1 },
-        { name: '4月上旬', week: '4月上旬', training: 'SR', recommended: '応対', recommendedStatus: 'satisfaction', delete: 2 },
-        { name: '4月下旬', week: '4月下旬', training: 'SR', recommended: '教務', recommendedStatus: 'enrollment', delete: 2 },
+        { name: '4月上旬', week: '4月上旬', training: 'SR', recommended: '応対', recommendedStatus: 'satisfaction', delete: 1 },
+        { name: '4月下旬', week: '4月下旬', training: 'SR', recommended: '教務', recommendedStatus: 'enrollment', delete: 1 },
         { name: '5月上旬', week: '5月上旬', training: 'SR', recommended: '庶務', recommendedStatus: 'accounting', delete: 0 }
     ];
 
@@ -51,8 +51,16 @@ export class TurnManager {
             console.log('[DEBUG] training→action遷移、startActionPhaseを呼び出し');
             this.startActionPhase();
         } else if (currentPhase === 'action') {
-            this.gameState.phase = 'meeting';
-            this.startMeetingPhase();
+            const config = this.getCurrentTurnConfig();
+            // 削除枚数が0の場合は教室会議フェーズをスキップ
+            if (config.delete === 0) {
+                this.logger?.log('[DEBUG] 削除枚数0のため教室会議フェーズをスキップ', 'info');
+                this.gameState.phase = 'meeting'; // 一時的にmeetingへ
+                this.advancePhase(); // 即座に次のターンへ
+            } else {
+                this.gameState.phase = 'meeting';
+                this.startMeetingPhase();
+            }
         } else if (currentPhase === 'meeting') {
             // 次のターンへ
             this.gameState.turn++;
@@ -112,30 +120,60 @@ export class TurnManager {
 
     /**
      * アクション実行
+     * @returns {Object} 各カードの効果情報
      */
     executeActions() {
         const placed = this.gameState.player.placed;
         const config = this.getCurrentTurnConfig();
+        const actionInfo = {
+            cardEffects: {} // staff -> { beforeStats, afterStats, isRecommended }
+        };
 
         this.logger?.log('--- アクション実行開始 ---', 'info');
 
-        // おすすめ行動ボーナスを計算
-        const recommendedCount = this.calculateRecommendedBonus(placed, config.recommended);
-        if (recommendedCount > 0) {
-            this.gameState.updateStatus(config.recommendedStatus, recommendedCount);
-            this.logger?.log(`おすすめ行動ボーナス: ${config.recommended} x${recommendedCount}`, 'action');
-        }
-
-        // 各スタッフのカード効果を実行
+        // 各スタッフのカード効果を実行（おすすめボーナスも含めて記録）
         const staffOrder = ['leader', 'teacher', 'staff'];
         staffOrder.forEach(staff => {
             const card = placed[staff];
             if (card) {
+                // 適用前のステータスを記録
+                const beforeStats = {
+                    experience: this.gameState.player.experience,
+                    enrollment: this.gameState.player.enrollment,
+                    satisfaction: this.gameState.player.satisfaction,
+                    accounting: this.gameState.player.accounting
+                };
+
+                // おすすめ行動かどうかチェック
+                const isRecommended = config.recommended && card.category === config.recommended;
+
+                // おすすめ行動ボーナスを適用（該当カードの処理時に）
+                if (isRecommended && config.recommendedStatus) {
+                    this.gameState.updateStatus(config.recommendedStatus, 1);
+                    this.logger?.log(`おすすめ行動ボーナス: ${config.recommended} x1`, 'action');
+                }
+
+                // カード効果を適用
                 this.cardManager.applyCardEffect(card, staff, this.gameState);
+
+                // 適用後のステータスを記録
+                const afterStats = {
+                    experience: this.gameState.player.experience,
+                    enrollment: this.gameState.player.enrollment,
+                    satisfaction: this.gameState.player.satisfaction,
+                    accounting: this.gameState.player.accounting
+                };
+
+                actionInfo.cardEffects[staff] = {
+                    beforeStats,
+                    afterStats,
+                    isRecommended
+                };
             }
         });
 
         this.logger?.log('--- アクション実行完了 ---', 'info');
+        return actionInfo;
     }
 
     /**
